@@ -1,19 +1,45 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Inter", sans-serif;
+
+  --color-background: #ffffff;
+  --color-surface: #f7f8fa;
+  --color-border: #e5e7eb;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+
+  --color-brand: #4f46e5;
+  --color-brand-hover: #4338ca;
+
+  --color-success: #16a34a;
+  --color-error: #dc2626;
+
+  --radius-lg: 8px;
+}
+
 :root {
-  font-family: Inter, sans-serif;
+  font-family: "Inter", sans-serif;
   color: #111827;
   background: #ffffff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   min-width: 320px;
+  min-height: 100vh;
   background: #ffffff;
 }
 
@@ -22,4 +48,13 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
 }
