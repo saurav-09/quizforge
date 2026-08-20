@@ -1,13 +1,19 @@
 import { Routes, Route } from "react-router-dom";
 
+import PublicLayout from "../components/layouts/PublicLayout";
 import DashboardLayout from "../components/layouts/DashboardLayout";
+
+import Landing from "../pages/Landing";
 import InstructorDashboard from "../pages/instructor/InstructorDashboard";
 import StudentDashboard from "../pages/student/StudentDashboard";
 
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<div>QuizForge Landing</div>} />
+      {/* Public */}
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<Landing />} />
+      </Route>
 
       {/* Instructor */}
       <Route
@@ -25,7 +31,7 @@ function AppRoutes() {
         <Route index element={<StudentDashboard />} />
       </Route>
 
-      {/* Everything else */}
+      {/* 404 */}
       <Route path="*" element={<div>Page Not Found</div>} />
     </Routes>
   );
