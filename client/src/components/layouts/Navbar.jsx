@@ -49,9 +49,11 @@ function Navbar() {
             Log in
           </Link>
 
-          <Button size="sm">
-            Get started
-          </Button>
+         <Link to="/register">
+  <Button size="sm">
+    Get started
+  </Button>
+</Link>
         </div>
 
         {/* Mobile Menu Button */}
@@ -83,18 +85,24 @@ function Navbar() {
           </nav>
 
           <div className="mt-3 border-t border-white/[0.08] pt-3">
-            <Link
-              to="/login"
-              onClick={() => setMobileOpen(false)}
-              className="mb-2 block rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
-            >
-              Log in
-            </Link>
+  <Link
+    to="/login"
+    onClick={() => setMobileOpen(false)}
+    className="mb-2 block rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
+  >
+    Log in
+  </Link>
 
-            <Button size="sm" className="w-full">
-              Get started
-            </Button>
-          </div>
+  <Link
+    to="/register"
+    onClick={() => setMobileOpen(false)}
+    className="block"
+  >
+    <Button size="sm" className="w-full">
+      Get started
+    </Button>
+  </Link>
+</div>
         </div>
       )}
     </header>

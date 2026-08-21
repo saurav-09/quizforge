@@ -1,6 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
-
+import { useAuth } from "@clerk/react";
+import { useClerk } from "@clerk/react";
 const footerGroups = [
   {
     title: "Product",
@@ -58,6 +59,10 @@ function FooterLink({ link }) {
 }
 
 function Footer() {
+
+  const { isSignedIn } = useAuth();
+  const { signOut } = useClerk();
+
   return (
     <footer className="border-t border-white/[0.08]">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -110,6 +115,16 @@ function Footer() {
           <p className="text-[10px] text-[#475569]">
             Create. Share. Assess. Understand.
           </p>
+
+
+          {isSignedIn && (
+      <button
+        onClick={() => signOut({ redirectUrl: "/" })}
+        className="text-xs text-[#64748B] transition-colors hover:text-[#F8FAFC]"
+      >
+        Logout
+      </button>
+    )}
         </div>
       </div>
     </footer>

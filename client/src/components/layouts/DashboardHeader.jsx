@@ -1,6 +1,9 @@
 import { Bell, Search } from "lucide-react";
+import { useAuthContext } from "../../context/AuthContext";
 
 function DashboardHeader({ title, description }) {
+  const { user, role } = useAuthContext();
+
   return (
     <header className="flex min-h-16 items-center justify-between border-b border-border bg-white px-4 sm:px-6">
       <div>
@@ -31,6 +34,25 @@ function DashboardHeader({ title, description }) {
         >
           <Bell size={18} />
         </button>
+
+        {/* Current user */}
+        <div className="ml-1 flex items-center gap-2 border-l border-border pl-3">
+          <img
+            src={user?.avatarUrl}
+            alt={user?.name || "User"}
+            className="h-8 w-8 rounded-full object-cover"
+          />
+
+          <div className="hidden sm:block">
+            <p className="max-w-[120px] truncate text-xs font-medium text-text-primary">
+              {user?.name || "User"}
+            </p>
+
+            <p className="text-[10px] capitalize text-text-secondary">
+              {role || "user"}
+            </p>
+          </div>
+        </div>
       </div>
     </header>
   );

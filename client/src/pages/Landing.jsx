@@ -74,10 +74,12 @@ function Landing() {
               variants={fadeUp}
               className="mt-6 flex flex-col gap-2.5 sm:flex-row"
             >
-              <Button size="lg">
-                Create your first quiz
-                <ArrowRight size={16} className="ml-2" />
-              </Button>
+              <Link to="/register">
+  <Button>
+    Create your first quiz
+    <ArrowRight size={16} className="ml-2" />
+  </Button>
+</Link>
 
               <Link
                 to="/login"
