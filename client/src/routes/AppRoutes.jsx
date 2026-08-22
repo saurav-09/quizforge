@@ -11,9 +11,13 @@ import Onboarding from "../pages/Onboarding";
 
 import InstructorDashboard from "../pages/instructor/InstructorDashboard";
 import StudentDashboard from "../pages/student/StudentDashboard";
-
+import InstructorResults from "../pages/instructor/InstructorResults";
 import ProtectedRoute from "../components/ProtectedRoute";
-
+import InstructorQuizzes from "../pages/instructor/InstructorQuizzes";
+import CreateQuiz from "../pages/instructor/CreateQuiz";
+import CreateQuizQuestions from "../pages/instructor/CreateQuizQuestions";
+import CreateQuizSettings from "../pages/instructor/CreateQuizSettings";
+import CreateQuizPreview from "../pages/instructor/CreateQuizPreview";
 function AppRoutes() {
   return (
     <Routes>
@@ -38,6 +42,28 @@ function AppRoutes() {
         }
       >
         <Route index element={<InstructorDashboard />} />
+        <Route
+  path="/instructor/results"
+  element={
+    <ProtectedRoute allowedRoles={["instructor"]}>
+      <InstructorResults />
+    </ProtectedRoute>
+  }
+/>
+<Route path="/instructor/quizzes" element={<InstructorQuizzes />} />
+<Route path="/instructor/quizzes/create" element={<CreateQuiz />} />
+<Route
+  path="/instructor/quizzes/create/questions"
+  element={<CreateQuizQuestions />}
+/>
+<Route
+  path="/instructor/quizzes/create/settings"
+  element={<CreateQuizSettings />}
+/>
+<Route
+  path="/instructor/quizzes/create/preview"
+  element={<CreateQuizPreview />}
+/>
       </Route>
 
       {/* Student */}

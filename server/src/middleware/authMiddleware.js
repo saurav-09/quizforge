@@ -3,7 +3,12 @@ import User from "../models/User.js";
 
 export const protect = async (req, res, next) => {
   try {
-    const { userId } = getAuth(req);
+    const auth = getAuth(req);
+
+    console.log("AUTH:", auth);
+    console.log("AUTHORIZATION:", req.headers.authorization);
+
+    const { userId } = auth;
 
     if (!userId) {
       return res.status(401).json({
