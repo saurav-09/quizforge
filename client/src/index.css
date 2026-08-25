@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap");
+
 @import "tailwindcss";
 
 @theme {
@@ -6,38 +7,46 @@
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --color-background: #0d0b1a;
-  --color-background-elevated: #161328;
+  /* Background */
+  --color-background: #ffffff;
+  --color-background-elevated: #f8fafc;
 
-  --color-surface: rgba(255, 255, 255, 0.04);
-  --color-surface-border: rgba(255, 255, 255, 0.08);
+  /* Surface */
+  --color-surface: #f8fafc;
+  --color-surface-border: #e2e8f0;
 
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
+  /* Text */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
 
+  /* Brand */
   --color-brand-violet: #8b5cf6;
   --color-brand-indigo: #6366f1;
   --color-brand-blue: #3b82f6;
+  --color-accent: #8b5cf6;
 
-  --color-accent: #a78bfa;
-  --color-cyan: #22d3ee;
-  --color-warm: #fb923c;
+  /* Accent */
+  --color-cyan: #0891b2;
+  --color-warm: #f97316;
 
-  --color-success: #34d399;
-  --color-error: #f87171;
+  /* Status */
+  --color-success: #10b981;
+  --color-error: #ef4444;
 
-  --color-border: rgba(255, 255, 255, 0.08);
+  /* Borders */
+  --color-border: #e2e8f0;
   --color-border-hover: rgba(139, 92, 246, 0.4);
 
+  /* Radius */
   --radius-card: 16px;
   --radius-button: 10px;
 }
 
 :root {
   font-family: "Inter", sans-serif;
-  color: #f8fafc;
-  background: #0d0b1a;
+  color: #0f172a;
+  background: #ffffff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -54,7 +63,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #0d0b1a;
+  background: #ffffff;
 }
 
 button,
@@ -75,8 +84,10 @@ a {
 
 ::selection {
   background: rgba(139, 92, 246, 0.3);
-  color: #f8fafc;
+  color: #0f172a;
 }
+
+/* Animations */
 
 @keyframes ambient-float {
   0%,
@@ -138,6 +149,8 @@ a {
 .animate-count-up-glow {
   animation: count-up-glow 0.6s ease-out;
 }
+
+/* Accessibility */
 
 @media (prefers-reduced-motion: reduce) {
   html {
