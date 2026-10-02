@@ -1,27 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@clerk/react";
-import { CheckCircle, Mail, Users } from "lucide-react";
 
 function InstructorResults() {
   const { getToken } = useAuth();
 
-  const [quizId, setQuizId] = useState("");
-  const [results, setResults] = useState([]);
-  const [quiz, setQuiz] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const [message, setMessage] = useState("");
+  const [quizzes, setQuizzes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const loadResults = async () => {
-    if (!quizId.trim()) return;
-
+  const fetchResults = async () => {
     try {
       setLoading(true);
-      setMessage("");
+      setError("");
 
       const token = await getToken();
 
-      const response = await fetch(`/api/quizzes/${quizId}/results`, {
+      const response = await fetch("/api/quizzes/my", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -30,229 +25,161 @@ function InstructorResults() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to load results");
+        throw new Error(
+          data.message || "Failed to fetch quizzes"
+        );
       }
 
-      setQuiz(data.quiz);
-      setResults(data.results);
+      setQuizzes(data.quizzes || []);
     } catch (error) {
-      setMessage(error.message);
+      console.error("Fetch instructor results error:", error);
+      setError(error.message || "Failed to load results");
     } finally {
       setLoading(false);
     }
   };
 
-  const shareResults = async () => {
-    try {
-      setSharing(true);
-      setMessage("");
+  useEffect(() => {
+    fetchResults();
+  }, []);
 
-      const token = await getToken();
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-text-secondary">
+          Loading results...
+        </p>
+      </div>
+    );
+  }
 
-      const response = await fetch(
-        `/api/quizzes/${quizId}/share-results`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to share results");
-      }
-
-      setMessage(
-        `${data.sent} result email(s) sent successfully.`
-      );
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setSharing(false);
-    }
-  };
+  if (error) {
+    return (
+      <div className="rounded-card border border-error/20 bg-error/5 p-6">
+        <p className="text-sm text-error">{error}</p>
+        <button
+          type="button"
+          onClick={fetchResults}
+          className="mt-4 rounded-button bg-brand-violet px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold tracking-tight text-text-primary">
-          Test Results
-        </h2>
+        <p className="text-sm font-medium text-brand-violet">
+          Instructor
+        </p>
 
-        <p className="mt-1 text-sm text-text-secondary">
-          View student results and share completed test results.
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-text-primary">
+          Results
+        </h1>
+
+        <p className="mt-2 text-sm text-text-secondary">
+          View performance and results for your quizzes.
         </p>
       </div>
 
-      <div className="rounded-xl border border-border bg-white p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            value={quizId}
-            onChange={(e) => setQuizId(e.target.value)}
-            placeholder="Enter Quiz ID"
-            className="h-10 flex-1 rounded-lg border border-border px-3 text-sm outline-none focus:border-brand"
-          />
+      {/* Empty state */}
+      {quizzes.length === 0 ? (
+        <div className="rounded-card border border-border bg-surface p-10 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand-violet/10 text-xl">
+            📊
+          </div>
 
-          <button
-            onClick={loadResults}
-            disabled={loading}
-            className="h-10 rounded-lg bg-[#8B5CF6] px-4 text-sm font-medium text-white hover:bg-[#7C3AED] disabled:opacity-50"
+          <h2 className="mt-4 text-lg font-semibold text-text-primary">
+            No quizzes yet
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-text-secondary">
+            Create and publish a quiz to start receiving student results.
+          </p>
+
+          <Link
+            to="/instructor/quizzes/create"
+            className="mt-6 inline-flex rounded-button bg-brand-violet px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
           >
-            {loading ? "Loading..." : "View Results"}
-          </button>
+            Create Quiz
+          </Link>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-4">
+          {quizzes.map((quiz) => (
+            <div
+              key={quiz._id}
+              className="rounded-card border border-border bg-surface p-6 transition hover:border-brand-violet/30"
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                {/* Quiz information */}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="truncate text-lg font-semibold text-text-primary">
+                      {quiz.title}
+                    </h2>
 
-      {message && (
-        <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text-secondary">
-          {message}
-        </div>
-      )}
-
-      {quiz && (
-        <>
-          <div className="rounded-xl border border-border bg-white p-4 sm:p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="font-semibold text-text-primary">
-                  {quiz.title}
-                </h3>
-
-                <p className="mt-1 text-sm text-text-secondary">
-                  {results.length} submitted attempt
-                  {results.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-
-              {quiz.status === "completed" && !quiz.resultsShared && (
-                <button
-                  onClick={shareResults}
-                  disabled={sharing || results.length === 0}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#8B5CF6] px-4 text-sm font-medium text-white hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Mail size={16} />
-                  {sharing ? "Sending..." : "Share Results"}
-                </button>
-              )}
-
-              {quiz.resultsShared && (
-                <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600">
-                  <CheckCircle size={16} />
-                  Results Shared
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-border bg-white p-5">
-              <div className="flex items-center gap-3">
-                <Users size={18} className="text-brand" />
-
-                <div>
-                  <p className="text-xs text-text-secondary">
-                    Participants
-                  </p>
-
-                  <p className="text-xl font-semibold text-text-primary">
-                    {results.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-white p-5">
-              <div>
-                <p className="text-xs text-text-secondary">
-                  Status
-                </p>
-
-                <p className="mt-1 text-xl font-semibold capitalize text-text-primary">
-                  {quiz.status}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-border bg-white">
-            <div className="border-b border-border px-4 py-4">
-              <h3 className="font-semibold text-text-primary">
-                Student Results
-              </h3>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px] text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface text-left text-xs text-text-secondary">
-                    <th className="px-4 py-3 font-medium">
-                      Student
-                    </th>
-
-                    <th className="px-4 py-3 font-medium">
-                      Email
-                    </th>
-
-                    <th className="px-4 py-3 font-medium">
-                      Score
-                    </th>
-
-                    <th className="px-4 py-3 font-medium">
-                      Percentage
-                    </th>
-
-                    <th className="px-4 py-3 font-medium">
-                      Submission
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {results.map((result) => (
-                    <tr
-                      key={result._id}
-                      className="border-b border-border last:border-0"
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        quiz.status === "published"
+                          ? "bg-success/10 text-success"
+                          : quiz.status === "completed"
+                          ? "bg-brand-indigo/10 text-brand-indigo"
+                          : "bg-background-elevated text-text-secondary"
+                      }`}
                     >
-                      <td className="px-4 py-3 font-medium text-text-primary">
-                        {result.student?.name || "Student"}
-                      </td>
+                      {quiz.status}
+                    </span>
 
-                      <td className="px-4 py-3 text-text-secondary">
-                        {result.student?.email || "No email"}
-                      </td>
+                    <span className="rounded-full bg-brand-violet/10 px-2.5 py-1 text-xs font-medium capitalize text-brand-violet">
+                      {quiz.settings?.quizMode || "practice"}
+                    </span>
+                  </div>
 
-                      <td className="px-4 py-3 text-text-primary">
-                        {result.score}/{result.totalPoints}
-                      </td>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    {quiz.description || "No description available."}
+                  </p>
 
-                      <td className="px-4 py-3 text-text-primary">
-                        {result.percentage}%
-                      </td>
+                  <div className="mt-4 flex flex-wrap gap-4 text-xs text-text-muted">
+                    <span>
+                      {quiz.questions?.length || 0} questions
+                    </span>
 
-                      <td className="px-4 py-3 capitalize text-text-secondary">
-                        {result.submissionType}
-                      </td>
-                    </tr>
-                  ))}
+                    <span>
+                      Created{" "}
+                      {quiz.createdAt
+                        ? new Date(
+                            quiz.createdAt
+                          ).toLocaleDateString()
+                        : "—"}
+                    </span>
 
-                  {results.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="px-4 py-8 text-center text-sm text-text-secondary"
-                      >
-                        No submitted results yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    {quiz.settings?.quizMode === "test" && (
+                      <span>
+                        {quiz.resultsShared
+                          ? "Results shared"
+                          : "Results not shared"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action */}
+                <div className="shrink-0">
+                  <Link
+                    to={`/instructor/results/${quiz._id}`}
+                    className="inline-flex w-full items-center justify-center rounded-button bg-brand-violet px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 sm:w-auto"
+                  >
+                    View Results
+                  </Link>
+                </div>
+              </div>
             </div>
-          </div>
-        </>
+          ))}
+        </div>
       )}
     </div>
   );

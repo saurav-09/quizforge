@@ -1,15 +1,17 @@
 import express from "express";
+
 import {
   createQuiz,
   getMyQuizzes,
   getQuiz,
-  updateQuiz,
-  deleteQuiz,
-  publishQuiz,
   getQuizResults,
   completeQuiz,
   shareQuizResults,
-  getAvailableQuizzes
+  updateQuiz,
+  deleteQuiz,
+  publishQuiz,
+  getAvailableQuizzes,
+  getQuizAttemptResultForInstructor,
 } from "../controllers/quizController.js";
 
 import {
@@ -38,6 +40,13 @@ router.get(
   protect,
   requireRole("student"),
   getAvailableQuizzes
+);
+
+router.get(
+  "/:id/attempt/:attemptId",
+  protect,
+  requireRole("instructor"),
+  getQuizAttemptResultForInstructor
 );
 
 router.get(

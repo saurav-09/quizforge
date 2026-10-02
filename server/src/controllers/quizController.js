@@ -276,7 +276,7 @@ export const getQuizResults = async (req, res) => {
     const quiz = await Quiz.findOne({
       _id: req.params.id,
       creator: req.user._id,
-    });
+    }).lean();
 
     if (!quiz) {
       return res.status(404).json({
@@ -290,23 +290,203 @@ export const getQuizResults = async (req, res) => {
       status: "submitted",
     })
       .populate("student", "name email")
-      .sort({ submittedAt: -1 });
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const results = attempts.map((attempt) => ({
+      attemptId: attempt._id,
+      student: {
+        _id: attempt.student?._id || null,
+        name: attempt.student?.name || "Unknown Student",
+        email: attempt.student?.email || "",
+      },
+      score: attempt.score,
+      totalPoints: attempt.totalPoints,
+      percentage: attempt.percentage,
+      timeTaken: attempt.timeTaken,
+      submissionType: attempt.submissionType,
+      submittedAt: attempt.submittedAt,
+      startedAt: attempt.startedAt,
+    }));
+
+    const totalAttempts = results.length;
+
+    const averagePercentage =
+      totalAttempts > 0
+        ? results.reduce(
+            (sum, result) => sum + result.percentage,
+            0
+          ) / totalAttempts
+        : 0;
+
+    const highestPercentage =
+      totalAttempts > 0
+        ? Math.max(
+            ...results.map(
+              (result) => result.percentage
+            )
+          )
+        : 0;
+
+    const lowestPercentage =
+      totalAttempts > 0
+        ? Math.min(
+            ...results.map(
+              (result) => result.percentage
+            )
+          )
+        : 0;
 
     res.status(200).json({
       success: true,
+
       quiz: {
-  _id: quiz._id,
-  title: quiz.title,
-  status: quiz.status,
-  quizMode: quiz.settings.quizMode,
-  resultsShared: quiz.resultsShared,
-},
-      results: attempts,
+        _id: quiz._id,
+        title: quiz.title,
+        description: quiz.description,
+        status: quiz.status,
+        quizMode: quiz.settings?.quizMode || "practice",
+        resultsShared: quiz.resultsShared || false,
+        totalQuestions: quiz.questions?.length || 0,
+      },
+
+      analytics: {
+        totalAttempts,
+        averagePercentage: Number(
+          averagePercentage.toFixed(2)
+        ),
+        highestPercentage: Number(
+          highestPercentage.toFixed(2)
+        ),
+        lowestPercentage: Number(
+          lowestPercentage.toFixed(2)
+        ),
+      },
+
+      results,
     });
   } catch (error) {
-    console.error("Get quiz results error:", error);
+    console.error(
+      "Get quiz results error:",
+      error
+    );
 
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getQuizAttemptResultForInstructor = async (req, res) => {
+  try {
+    const { id: quizId, attemptId } = req.params;
+
+    // Make sure the quiz belongs to this instructor
+    const quiz = await Quiz.findOne({
+      _id: quizId,
+      creator: req.user._id,
+    }).lean();
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz not found",
+      });
+    }
+
+    // Find the submitted attempt for this quiz
+    const attempt = await QuizAttempt.findOne({
+      _id: attemptId,
+      quiz: quiz._id,
+      status: "submitted",
+    })
+      .populate("student", "name email")
+      .lean();
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz attempt not found",
+      });
+    }
+
+    // Create a quick lookup for the student's answers
+    const answerMap = new Map();
+
+    for (const answer of attempt.answers || []) {
+      answerMap.set(answer.questionId.toString(), answer);
+    }
+
+    // Build question-by-question result
+    const questions = quiz.questions.map((question) => {
+      const studentAnswer = answerMap.get(
+        question._id.toString()
+      );
+
+      return {
+        questionId: question._id,
+        question: question.question,
+        options: question.options,
+
+        selectedAnswer:
+          studentAnswer?.selectedAnswer ?? null,
+
+        correctAnswer: question.correctAnswer,
+
+        isCorrect:
+          studentAnswer?.isCorrect ?? false,
+
+        points: question.points,
+
+        pointsEarned:
+          studentAnswer?.pointsEarned ?? 0,
+
+        explanation:
+          question.explanation || "",
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+
+      result: {
+        attemptId: attempt._id,
+
+        student: {
+          _id: attempt.student?._id || null,
+          name: attempt.student?.name || "Unknown Student",
+          email: attempt.student?.email || "",
+        },
+
+        quiz: {
+          _id: quiz._id,
+          title: quiz.title,
+          description: quiz.description,
+          quizMode: quiz.settings?.quizMode || "practice",
+        },
+
+        score: attempt.score,
+        totalPoints: attempt.totalPoints,
+        percentage: attempt.percentage,
+
+        timeTaken: attempt.timeTaken,
+
+        startedAt: attempt.startedAt,
+        submittedAt: attempt.submittedAt,
+
+        submissionType: attempt.submissionType,
+
+        questions,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Get instructor attempt result error:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -467,8 +647,6 @@ res.status(200).json({
     });
   }
 };
-
-
 export const getAvailableQuizzes = async (req, res) => {
   try {
     const quizzes = await Quiz.find({

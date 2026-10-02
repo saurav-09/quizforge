@@ -11,11 +11,13 @@ import Onboarding from "../pages/Onboarding";
 
 import InstructorDashboard from "../pages/instructor/InstructorDashboard";
 import InstructorResults from "../pages/instructor/InstructorResults";
+import InstructorQuizResults from "../pages/instructor/InstructorQuizResults";
 import InstructorQuizzes from "../pages/instructor/InstructorQuizzes";
 import CreateQuiz from "../pages/instructor/CreateQuiz";
 import CreateQuizQuestions from "../pages/instructor/CreateQuizQuestions";
 import CreateQuizSettings from "../pages/instructor/CreateQuizSettings";
 import CreateQuizPreview from "../pages/instructor/CreateQuizPreview";
+import InstructorAttemptResult from "../pages/instructor/InstructorAttemptResult";
 
 import StudentDashboard from "../pages/student/StudentDashboard";
 import StudentQuizzes from "../pages/student/StudentQuizzes";
@@ -49,6 +51,14 @@ function AppRoutes() {
       >
         <Route index element={<InstructorDashboard />} />
         <Route path="results" element={<InstructorResults />} />
+        <Route
+  path="results/:quizId"
+  element={<InstructorQuizResults />}
+/>
+<Route
+  path="results/:quizId/attempt/:attemptId"
+  element={<InstructorAttemptResult />}
+/>
         <Route path="quizzes" element={<InstructorQuizzes />} />
         <Route path="quizzes/create" element={<CreateQuiz />} />
         <Route
