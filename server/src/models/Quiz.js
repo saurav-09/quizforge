@@ -94,6 +94,7 @@ const quizSchema = new mongoose.Schema(
       },
     },
 
+    // Used for scheduled tests
     startTime: {
       type: Date,
       default: null,
@@ -104,15 +105,16 @@ const quizSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Used later for Test result sharing
     resultsShared: {
-  type: Boolean,
-  default: false,
-},
+      type: Boolean,
+      default: false,
+    },
 
-resultsSharedAt: {
-  type: Date,
-  default: null,
-},
+    resultsSharedAt: {
+      type: Date,
+      default: null,
+    },
 
     accessCode: {
       type: String,
@@ -123,15 +125,29 @@ resultsSharedAt: {
 
     status: {
       type: String,
-      enum: ["draft", "published", "completed", "archived"],
+      enum: ["draft", "published", "archived"],
       default: "draft",
       index: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-quizSchema.index({ creator: 1, createdAt: -1 });
-quizSchema.index({ status: 1, createdAt: -1 });
+quizSchema.index({
+  creator: 1,
+  createdAt: -1,
+});
+
+quizSchema.index({
+  status: 1,
+  createdAt: -1,
+});
+
+quizSchema.index({
+  startTime: 1,
+  endTime: 1,
+});
 
 export default mongoose.model("Quiz", quizSchema);

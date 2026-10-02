@@ -10,11 +10,14 @@ export function AuthProvider({ children }) {
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   const fetchCurrentUser = async () => {
+    if (!isSignedIn) {
+      setUser(null);
+      setIsLoadingUser(false);
+      return;
+    }
+
     try {
-      if (!isSignedIn) {
-        setUser(null);
-        return;
-      }
+      setIsLoadingUser(true);
 
       const token = await getToken();
 
@@ -48,7 +51,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     role: user?.role || null,
-    isAuthenticated: isSignedIn,
+    isAuthenticated: !!isSignedIn,
     isLoading: !isLoaded || isLoadingUser,
     refreshUser: fetchCurrentUser,
   };
@@ -64,9 +67,7 @@ export function useAuthContext() {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error(
-      "useAuthContext must be used inside AuthProvider"
-    );
+    throw new Error("useAuthContext must be used inside AuthProvider");
   }
 
   return context;

@@ -1,17 +1,30 @@
 import { Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { useClerk } from "@clerk/react";
 import Button from "../ui/Button";
+import { useAuthContext } from "../../context/AuthContext";
 
 function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
- const links = [
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "For instructors", href: "#for-instructors" },
-  { label: "For students", href: "#for-students" },
-];
+  const { signOut } = useClerk();
+  const { isAuthenticated, role } = useAuthContext();
+
+  const links = [
+    { label: "Features", href: "#features" },
+    { label: "How it works", href: "#how-it-works" },
+    { label: "For instructors", href: "#for-instructors" },
+    { label: "For students", href: "#for-students" },
+  ];
+
+  const dashboardPath =
+    role === "instructor" ? "/instructor" : "/student";
+
+  const handleLogout = async () => {
+    setMobileOpen(false);
+    await signOut({ redirectUrl: "/" });
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#0D0B1A]/75 backdrop-blur-xl">
@@ -42,18 +55,34 @@ function Navbar() {
 
         {/* Desktop Actions */}
         <div className="hidden items-center gap-2 md:flex">
-          <Link
-            to="/login"
-            className="rounded-[10px] px-3.5 py-2 text-sm font-medium text-[#94A3B8] transition-colors hover:bg-white/[0.04] hover:text-[#F8FAFC]"
-          >
-            Log in
-          </Link>
+          {!isAuthenticated ? (
+            <>
+              <Link
+                to="/login"
+                className="rounded-[10px] px-3.5 py-2 text-sm font-medium text-[#94A3B8] transition-colors hover:bg-white/[0.04] hover:text-[#F8FAFC]"
+              >
+                Log in
+              </Link>
 
-         <Link to="/register">
-  <Button size="sm">
-    Get started
-  </Button>
-</Link>
+              <Link to="/register">
+                <Button size="sm">Get started</Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to={dashboardPath}>
+                <Button size="sm">Dashboard</Button>
+              </Link>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-[10px] px-3.5 py-2 text-sm font-medium text-[#94A3B8] transition-colors hover:bg-white/[0.04] hover:text-[#F8FAFC]"
+              >
+                Logout
+              </button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -85,24 +114,48 @@ function Navbar() {
           </nav>
 
           <div className="mt-3 border-t border-white/[0.08] pt-3">
-  <Link
-    to="/login"
-    onClick={() => setMobileOpen(false)}
-    className="mb-2 block rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
-  >
-    Log in
-  </Link>
+            {!isAuthenticated ? (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="mb-2 block rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
+                >
+                  Log in
+                </Link>
 
-  <Link
-    to="/register"
-    onClick={() => setMobileOpen(false)}
-    className="block"
-  >
-    <Button size="sm" className="w-full">
-      Get started
-    </Button>
-  </Link>
-</div>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileOpen(false)}
+                  className="block"
+                >
+                  <Button size="sm" className="w-full">
+                    Get started
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Link
+                  to={dashboardPath}
+                  onClick={() => setMobileOpen(false)}
+                  className="block"
+                >
+                  <Button size="sm" className="w-full">
+                    Dashboard
+                  </Button>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="block w-full rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </header>

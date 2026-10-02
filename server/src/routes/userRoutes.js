@@ -6,11 +6,14 @@ import {
   getCurrentUser,
 } from "../controllers/userController.js";
 
-import { protect } from "../middleware/authMiddleware.js";
+import {
+  protect,
+  requireClerkAuth,
+} from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/sync", syncUser);
+router.post("/sync", requireClerkAuth, syncUser);
 
 router.get("/me", protect, getCurrentUser);
 

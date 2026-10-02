@@ -14,12 +14,15 @@ if (!publishableKey) {
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-  <ClerkProvider publishableKey={publishableKey}>
-  <BrowserRouter>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </BrowserRouter>
-</ClerkProvider>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      signUpForceRedirectUrl="/onboarding"
+    >
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </ClerkProvider>
   </StrictMode>
 );

@@ -10,14 +10,22 @@ import Landing from "../pages/Landing";
 import Onboarding from "../pages/Onboarding";
 
 import InstructorDashboard from "../pages/instructor/InstructorDashboard";
-import StudentDashboard from "../pages/student/StudentDashboard";
 import InstructorResults from "../pages/instructor/InstructorResults";
-import ProtectedRoute from "../components/ProtectedRoute";
 import InstructorQuizzes from "../pages/instructor/InstructorQuizzes";
 import CreateQuiz from "../pages/instructor/CreateQuiz";
 import CreateQuizQuestions from "../pages/instructor/CreateQuizQuestions";
 import CreateQuizSettings from "../pages/instructor/CreateQuizSettings";
 import CreateQuizPreview from "../pages/instructor/CreateQuizPreview";
+
+import StudentDashboard from "../pages/student/StudentDashboard";
+import StudentQuizzes from "../pages/student/StudentQuizzes";
+import StudentQuizDetails from "../pages/student/StudentQuizDetails";
+import StudentQuizAttempt from "../pages/student/StudentQuizAttempt";
+import StudentQuizResult from "../pages/student/StudentQuizResult";
+import StudentResults from "../pages/student/StudentResults";
+
+import ProtectedRoute from "../components/ProtectedRoute";
+
 function AppRoutes() {
   return (
     <Routes>
@@ -27,9 +35,7 @@ function AppRoutes() {
       </Route>
 
       <Route path="/login" element={<Login />} />
-
       <Route path="/register" element={<Register />} />
-
       <Route path="/onboarding" element={<Onboarding />} />
 
       {/* Instructor */}
@@ -42,41 +48,59 @@ function AppRoutes() {
         }
       >
         <Route index element={<InstructorDashboard />} />
+        <Route path="results" element={<InstructorResults />} />
+        <Route path="quizzes" element={<InstructorQuizzes />} />
+        <Route path="quizzes/create" element={<CreateQuiz />} />
         <Route
-  path="/instructor/results"
-  element={
-    <ProtectedRoute allowedRoles={["instructor"]}>
-      <InstructorResults />
-    </ProtectedRoute>
-  }
-/>
-<Route path="/instructor/quizzes" element={<InstructorQuizzes />} />
-<Route path="/instructor/quizzes/create" element={<CreateQuiz />} />
-<Route
-  path="/instructor/quizzes/create/questions"
-  element={<CreateQuizQuestions />}
-/>
-<Route
-  path="/instructor/quizzes/create/settings"
-  element={<CreateQuizSettings />}
-/>
-<Route
-  path="/instructor/quizzes/create/preview"
-  element={<CreateQuizPreview />}
-/>
+          path="quizzes/create/questions"
+          element={<CreateQuizQuestions />}
+        />
+        <Route
+          path="quizzes/create/settings"
+          element={<CreateQuizSettings />}
+        />
+        <Route
+          path="quizzes/create/preview"
+          element={<CreateQuizPreview />}
+        />
       </Route>
 
       {/* Student */}
-      <Route
-        path="/student"
-        element={
-          <ProtectedRoute allowedRoles={["student"]}>
-            <DashboardLayout role="student" />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<StudentDashboard />} />
-      </Route>
+    <Route
+  path="/student"
+  element={
+    <ProtectedRoute allowedRoles={["student"]}>
+      <DashboardLayout role="student" />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<StudentDashboard />} />
+
+  <Route
+    path="quizzes"
+    element={<StudentQuizzes />}
+  />
+
+  <Route
+    path="quizzes/:quizId"
+    element={<StudentQuizDetails />}
+  />
+
+  <Route
+    path="quizzes/:quizId/attempt/:attemptId"
+    element={<StudentQuizAttempt />}
+  />
+
+  <Route
+    path="results"
+    element={<StudentResults />}
+  />
+
+  <Route
+    path="results/:attemptId"
+    element={<StudentQuizResult />}
+  />
+</Route>
 
       {/* Temporary profile route */}
       <Route path="/profile" element={<Profile />} />

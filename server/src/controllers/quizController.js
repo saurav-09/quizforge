@@ -99,7 +99,7 @@ export const getMyQuizzes = async (req, res) => {
 
 export const getQuiz = async (req, res) => {
   try {
-    const quiz = await Quiz.findById(req.params.id);
+    const quiz = await Quiz.findById(req.params.id).lean();
 
     if (!quiz) {
       return res.status(404).json({
@@ -108,14 +108,46 @@ export const getQuiz = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    const isOwner =
+      quiz.creator?.toString() === req.user._id.toString();
+
+    /*
+     * Students should never receive correct answers
+     * or explanations before submitting.
+     */
+    if (req.user.role === "student") {
+      quiz.questions = quiz.questions.map((question) => ({
+        _id: question._id,
+        question: question.question,
+        options: question.options,
+        points: question.points,
+      }));
+    }
+
+    /*
+     * Instructors can see the complete quiz because
+     * they are the creator/owner flow.
+     */
+    if (
+      req.user.role === "instructor" &&
+      !isOwner
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to access this quiz",
+      });
+    }
+
+    return res.status(200).json({
       success: true,
       quiz,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Get quiz error:", error);
+
+    return res.status(500).json({
       success: false,
-      message: "Invalid quiz ID",
+      message: error.message,
     });
   }
 };
@@ -428,6 +460,42 @@ res.status(200).json({
  
   } catch (error) {
     console.error("Share quiz results error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+export const getAvailableQuizzes = async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({
+      status: "published",
+    })
+      .select(
+        "title description questions settings startTime endTime status"
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const safeQuizzes = quizzes.map((quiz) => ({
+      ...quiz,
+      questions: quiz.questions.map((question) => ({
+        _id: question._id,
+        question: question.question,
+        options: question.options,
+        points: question.points,
+      })),
+    }));
+
+    res.status(200).json({
+      success: true,
+      quizzes: safeQuizzes,
+    });
+  } catch (error) {
+    console.error("Get available quizzes error:", error);
 
     res.status(500).json({
       success: false,

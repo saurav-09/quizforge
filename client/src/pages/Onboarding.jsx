@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../context/AuthContext";
 
 function Onboarding() {
   const { getToken } = useAuth();
+  const { refreshUser } = useAuthContext();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -16,7 +18,24 @@ function Onboarding() {
 
       const token = await getToken();
 
-      const response = await fetch("/api/user/role", {
+      // Create/sync the QuizForge user in MongoDB
+      const syncResponse = await fetch("/api/user/sync", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const syncData = await syncResponse.json();
+
+      if (!syncResponse.ok) {
+        throw new Error(
+          syncData.message || "Failed to create QuizForge user"
+        );
+      }
+
+      // Save the selected role
+      const roleResponse = await fetch("/api/user/role", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -25,12 +44,16 @@ function Onboarding() {
         body: JSON.stringify({ role }),
       });
 
-      const data = await response.json();
+      const roleData = await roleResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update role");
+      if (!roleResponse.ok) {
+        throw new Error(roleData.message || "Failed to save role");
       }
 
+      // Refresh AuthContext so ProtectedRoute gets the new role
+      await refreshUser();
+
+      // Go to the correct dashboard
       if (role === "instructor") {
         navigate("/instructor");
       } else {
@@ -96,6 +119,12 @@ function Onboarding() {
             </p>
           </button>
         </div>
+
+        {loading && (
+          <p className="mt-5 text-center text-sm text-text-secondary">
+            Setting up your account...
+          </p>
+        )}
 
         {error && (
           <p className="mt-5 text-center text-sm text-[#F87171]">

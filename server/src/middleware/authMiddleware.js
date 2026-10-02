@@ -3,12 +3,7 @@ import User from "../models/User.js";
 
 export const protect = async (req, res, next) => {
   try {
-    const auth = getAuth(req);
-
-    console.log("AUTH:", auth);
-    console.log("AUTHORIZATION:", req.headers.authorization);
-
-    const { userId } = auth;
+    const { userId } = getAuth(req);
 
     if (!userId) {
       return res.status(401).json({
@@ -60,4 +55,28 @@ export const requireRole = (...roles) => {
 
     next();
   };
+};
+
+export const requireClerkAuth = (req, res, next) => {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    req.clerkUserId = userId;
+
+    next();
+  } catch (error) {
+    console.error("Clerk authentication error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Authentication failed",
+    });
+  }
 };

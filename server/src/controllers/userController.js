@@ -3,7 +3,7 @@ import User from "../models/User.js";
 
 export const syncUser = async (req, res) => {
   try {
-    const { userId } = getAuth(req);
+    const userId = req.clerkUserId;
 
     if (!userId) {
       return res.status(401).json({

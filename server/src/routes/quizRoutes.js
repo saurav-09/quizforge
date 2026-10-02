@@ -9,6 +9,7 @@ import {
   getQuizResults,
   completeQuiz,
   shareQuizResults,
+  getAvailableQuizzes
 } from "../controllers/quizController.js";
 
 import {
@@ -30,6 +31,13 @@ router.get(
   protect,
   requireRole("instructor"),
   getMyQuizzes
+);
+
+router.get(
+  "/available",
+  protect,
+  requireRole("student"),
+  getAvailableQuizzes
 );
 
 router.get(
