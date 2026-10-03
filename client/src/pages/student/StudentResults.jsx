@@ -4,7 +4,6 @@ import {
   Award,
   CheckCircle2,
   Clock3,
-  FileQuestion,
   Loader2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -38,12 +37,15 @@ function StudentResults() {
 
         if (!response.ok) {
           throw new Error(
-            data.message ||
-              "Failed to load results"
+            data.message || "Failed to load results"
           );
         }
 
-        setResults(data.results || []);
+        setResults(
+          Array.isArray(data.results)
+            ? data.results
+            : []
+        );
       } catch (error) {
         console.error(
           "Fetch student results error:",
@@ -72,7 +74,7 @@ function StudentResults() {
 
     const safeSeconds = Math.max(
       0,
-      seconds
+      Number(seconds) || 0
     );
 
     const hours = Math.floor(
@@ -83,11 +85,18 @@ function StudentResults() {
       (safeSeconds % 3600) / 60
     );
 
+    const remainingSeconds =
+      safeSeconds % 60;
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
 
-    return `${minutes} min`;
+    if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+
+    return `${remainingSeconds}s`;
   };
 
   const formatDate = (date) => {
@@ -95,7 +104,13 @@ function StudentResults() {
       return "—";
     }
 
-    return new Date(date).toLocaleDateString(
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "—";
+    }
+
+    return parsedDate.toLocaleDateString(
       "en-IN",
       {
         day: "numeric",
@@ -245,9 +260,12 @@ function StudentResults() {
       <div className="space-y-4">
         {results.map((item) => {
           const isTest =
-            item.quiz?.quizMode ===
-            "test";
+            item.quiz?.quizMode === "test";
 
+          /*
+           * Backend sends resultAvailable=false
+           * when a test result has not been released.
+           */
           const resultAvailable =
             item.resultAvailable !== false;
 
@@ -292,8 +310,7 @@ function StudentResults() {
                     </span>
 
                     {resultAvailable &&
-                      item.timeTaken !==
-                        null &&
+                      item.timeTaken !== null &&
                       item.timeTaken !==
                         undefined && (
                         <span>
@@ -315,12 +332,11 @@ function StudentResults() {
                       </p>
 
                       <p className="mt-1 text-sm font-bold text-text-primary">
-                        {item.score}
+                        {item.score ?? 0}
+
                         <span className="font-normal text-text-muted">
                           /
-                          {
-                            item.totalPoints
-                          }
+                          {item.totalPoints ?? 0}
                         </span>
                       </p>
                     </div>
@@ -332,8 +348,9 @@ function StudentResults() {
 
                       <p className="mt-1 text-sm font-bold text-brand-violet">
                         {Math.round(
-                          item.percentage ||
-                            0
+                          Number(
+                            item.percentage
+                          ) || 0
                         )}
                         %
                       </p>

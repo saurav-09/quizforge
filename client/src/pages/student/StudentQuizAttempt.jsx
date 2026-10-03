@@ -7,7 +7,12 @@ import {
   Loader2,
   Send,
 } from "lucide-react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { useAuth } from "@clerk/react";
 
 function StudentQuizAttempt() {
@@ -16,12 +21,6 @@ function StudentQuizAttempt() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  /*
-   * -------------------------------------------------------
-   * State
-   * -------------------------------------------------------
-   */
-
   const [quiz, setQuiz] = useState(
     location.state?.quiz || null
   );
@@ -29,7 +28,8 @@ function StudentQuizAttempt() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [currentQuestion, setCurrentQuestion] =
+    useState(0);
 
   const [answers, setAnswers] = useState(
     location.state?.answers || {}
@@ -58,53 +58,32 @@ function StudentQuizAttempt() {
   const [showSubmitConfirm, setShowSubmitConfirm] =
     useState(false);
 
-  /*
-   * Keep latest answers available inside async functions.
-   */
   const answersRef = useRef(answers);
-
-  /*
-   * Prevent duplicate submissions.
-   */
   const submittedRef = useRef(false);
-
-  /*
-   * Autosave debounce timer.
-   */
   const saveTimeoutRef = useRef(null);
 
   /*
-   * -------------------------------------------------------
-   * Keep answersRef synchronized
-   * -------------------------------------------------------
+   * Keep latest answers available to async functions.
    */
-
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
 
   /*
-   * -------------------------------------------------------
-   * Load attempt
+   * Load attempt.
    *
-   * If quiz data exists in router state, use it.
-   *
-   * If the page was refreshed, router state disappears.
-   * In that case, fetch the attempt from backend.
-   * -------------------------------------------------------
+   * Router state is used when available.
+   * Backend is used on refresh/direct access.
    */
-
   useEffect(() => {
     const loadAttempt = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const token = await getToken();
-
         /*
-         * If we already have quiz + deadline from the
-         * Start Quiz response, no need to fetch again.
+         * If the required attempt data already exists
+         * in router state, use it immediately.
          */
         if (
           location.state?.quiz &&
@@ -114,9 +93,8 @@ function StudentQuizAttempt() {
           return;
         }
 
-        /*
-         * Refresh / direct page load.
-         */
+        const token = await getToken();
+
         const response = await fetch(
           `/api/quiz-attempts/${attemptId}`,
           {
@@ -130,21 +108,24 @@ function StudentQuizAttempt() {
 
         if (!response.ok) {
           throw new Error(
-            data.message || "Failed to load quiz attempt"
+            data.message ||
+              "Failed to load quiz attempt"
           );
         }
 
         setQuiz(data.quiz);
 
         /*
-         * Restore previously saved answers.
+         * Restore saved answers.
          */
         const restoredAnswers = {};
 
         for (const answer of data.answers || []) {
           if (
-            answer.questionId &&
-            answer.selectedAnswer
+            answer?.questionId &&
+            answer.selectedAnswer !== null &&
+            answer.selectedAnswer !== undefined &&
+            answer.selectedAnswer !== ""
           ) {
             restoredAnswers[
               answer.questionId
@@ -156,7 +137,7 @@ function StudentQuizAttempt() {
         answersRef.current = restoredAnswers;
 
         /*
-         * Restore deadline.
+         * Restore backend deadline.
          */
         if (data.deadline) {
           setDeadline(
@@ -165,10 +146,11 @@ function StudentQuizAttempt() {
         }
 
         /*
-         * If backend says attempt is already submitted,
-         * show submission state instead of quiz.
+         * Handle already submitted attempts.
          */
         if (data.status === "submitted") {
+          submittedRef.current = true;
+
           setSubmitted(true);
 
           setSubmissionResult(
@@ -198,11 +180,8 @@ function StudentQuizAttempt() {
   }, [attemptId, getToken, location.state]);
 
   /*
-   * -------------------------------------------------------
-   * Format timer
-   * -------------------------------------------------------
+   * Format timer.
    */
-
   const formatTime = (seconds) => {
     if (seconds === null) {
       return "--:--";
@@ -226,13 +205,16 @@ function StudentQuizAttempt() {
   };
 
   /*
-   * -------------------------------------------------------
-   * Timer
-   * -------------------------------------------------------
+   * Timer.
+   *
+   * Backend deadline is the source of truth.
    */
-
   useEffect(() => {
-    if (!deadline || submitted) {
+    if (
+      !deadline ||
+      submitted ||
+      submittedRef.current
+    ) {
       return;
     }
 
@@ -260,11 +242,9 @@ function StudentQuizAttempt() {
   }, [deadline, submitted]);
 
   /*
-   * -------------------------------------------------------
-   * Convert local answer object into API format
-   * -------------------------------------------------------
+   * Convert local answers object into
+   * backend format.
    */
-
   const getFormattedAnswers = (
     answersObject = answersRef.current
   ) => {
@@ -279,15 +259,15 @@ function StudentQuizAttempt() {
   };
 
   /*
-   * -------------------------------------------------------
-   * Save progress
-   * -------------------------------------------------------
+   * Save progress.
    */
-
   const saveProgress = async (
     answersToSave = answersRef.current
   ) => {
-    if (submittedRef.current) {
+    if (
+      submittedRef.current ||
+      submitting
+    ) {
       return;
     }
 
@@ -300,12 +280,10 @@ function StudentQuizAttempt() {
         `/api/quiz-attempts/${attemptId}/answers`,
         {
           method: "PATCH",
-
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-
           body: JSON.stringify({
             answers:
               getFormattedAnswers(
@@ -328,23 +306,14 @@ function StudentQuizAttempt() {
         "Save progress error:",
         error
       );
-
-      /*
-       * We don't clear local answers when autosave
-       * fails. They remain in the browser state and
-       * will be included in final submission.
-       */
     } finally {
       setSaving(false);
     }
   };
 
   /*
-   * -------------------------------------------------------
-   * Schedule autosave
-   * -------------------------------------------------------
+   * Schedule autosave.
    */
-
   const scheduleSave = (nextAnswers) => {
     if (saveTimeoutRef.current) {
       clearTimeout(
@@ -361,11 +330,8 @@ function StudentQuizAttempt() {
   };
 
   /*
-   * -------------------------------------------------------
-   * Handle answer selection
-   * -------------------------------------------------------
+   * Handle answer selection.
    */
-
   const handleAnswer = (answer) => {
     if (
       submittedRef.current ||
@@ -385,185 +351,144 @@ function StudentQuizAttempt() {
 
     const nextAnswers = {
       ...answersRef.current,
-
       [question._id]: answer,
     };
 
     setAnswers(nextAnswers);
-
-    answersRef.current =
-      nextAnswers;
+    answersRef.current = nextAnswers;
 
     scheduleSave(nextAnswers);
   };
 
   /*
-   * -------------------------------------------------------
-   * Submit Quiz
-   * -------------------------------------------------------
+   * Submit quiz.
    */
-
   const submitQuiz = async (automatic = false) => {
-  if (
-    submittedRef.current ||
-    submitting
-  ) {
-    return;
-  }
-
-  try {
-    submittedRef.current = true;
-
-    setSubmitting(true);
-    setError("");
-
-    /*
-     * Stop any pending autosave.
-     */
-    if (saveTimeoutRef.current) {
-      clearTimeout(
-        saveTimeoutRef.current
-      );
-    }
-
-    const token = await getToken();
-
-    /*
-     * Convert local answers object into
-     * backend submission format.
-     */
-    const formattedAnswers = Object.entries(
-      answersRef.current
-    ).map(
-      ([questionId, selectedAnswer]) => ({
-        questionId,
-        selectedAnswer,
-      })
-    );
-
-    const response = await fetch(
-      `/api/quiz-attempts/${attemptId}/submit`,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-
-        body: JSON.stringify({
-          answers: formattedAnswers,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      /*
-       * Allow another submission attempt if
-       * the request itself failed.
-       */
-      submittedRef.current = false;
-
-      throw new Error(
-        data.message ||
-          "Failed to submit quiz"
-      );
-    }
-
-    /*
-     * Backend decides the actual submission type.
-     *
-     * This is important because the backend may
-     * determine that the deadline has already passed.
-     */
-    const finalSubmissionType =
-      data.submissionType ||
-      (automatic
-        ? "automatic"
-        : "manual");
-
-    setSubmissionType(
-      finalSubmissionType
-    );
-
-    setSubmissionResult(
-      data.result || null
-    );
-
-    setShowSubmitConfirm(false);
-    setRemainingSeconds(0);
-
-    /*
-     * -------------------------------------------------------
-     * PRACTICE MODE
-     *
-     * Practice result is available immediately.
-     * Open the detailed result page.
-     * -------------------------------------------------------
-     */
-
     if (
-      quiz?.settings?.quizMode !==
-        "test" &&
-      data.result
+      submittedRef.current ||
+      submitting
     ) {
-      navigate(
-        `/student/results/${attemptId}`
-      );
-
       return;
     }
 
-    /*
-     * -------------------------------------------------------
-     * TEST MODE
-     *
-     * Test result may be hidden until the instructor
-     * shares it, so keep the submitted screen here.
-     * -------------------------------------------------------
-     */
+    try {
+      submittedRef.current = true;
 
-    setSubmitted(true);
-  } catch (error) {
-    console.error(
-      "Submit quiz error:",
-      error
-    );
+      setSubmitting(true);
+      setError("");
 
-    setError(
-      error.message ||
-        "Failed to submit quiz"
-    );
+      /*
+       * Stop pending autosave.
+       */
+      if (saveTimeoutRef.current) {
+        clearTimeout(
+          saveTimeoutRef.current
+        );
 
-    /*
-     * Only reset the submitted lock when
-     * the submission request failed.
-     *
-     * If submission succeeded, execution reaches
-     * the navigation / submitted state above.
-     */
-    submittedRef.current = false;
-  } finally {
-    setSubmitting(false);
-  }
-};
+        saveTimeoutRef.current = null;
+      }
+
+      const token = await getToken();
+
+      const formattedAnswers =
+        getFormattedAnswers(
+          answersRef.current
+        );
+
+      const response = await fetch(
+        `/api/quiz-attempts/${attemptId}/submit`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            answers: formattedAnswers,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to submit quiz"
+        );
+      }
+
+      /*
+       * Backend decides whether submission
+       * was manual or automatic.
+       */
+      const finalSubmissionType =
+        data.submissionType ||
+        (automatic
+          ? "automatic"
+          : "manual");
+
+      setSubmissionType(
+        finalSubmissionType
+      );
+
+      setSubmissionResult(
+        data.result || null
+      );
+
+      setShowSubmitConfirm(false);
+      setRemainingSeconds(0);
+
+      /*
+       * Practice results are immediately available.
+       */
+      if (
+        quiz?.settings?.quizMode !==
+          "test" &&
+        data.result
+      ) {
+        navigate(
+          `/student/results/${attemptId}`
+        );
+
+        return;
+      }
+
+      /*
+       * Test result remains on the submitted
+       * screen until the instructor shares it.
+       */
+      setSubmitted(true);
+    } catch (error) {
+      console.error(
+        "Submit quiz error:",
+        error
+      );
+
+      setError(
+        error.message ||
+          "Failed to submit quiz"
+      );
+
+      /*
+       * Submission failed, so allow retry.
+       */
+      submittedRef.current = false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   /*
-   * -------------------------------------------------------
-   * Automatic submission
-   *
-   * Timer reaches 0 → submit automatically.
-   * -------------------------------------------------------
+   * Automatic submission when timer reaches zero.
    */
-
   useEffect(() => {
     if (
       remainingSeconds === null ||
       remainingSeconds > 0 ||
       submitted ||
-      submitting
+      submitting ||
+      submittedRef.current
     ) {
       return;
     }
@@ -576,11 +501,8 @@ function StudentQuizAttempt() {
   ]);
 
   /*
-   * -------------------------------------------------------
-   * Cleanup
-   * -------------------------------------------------------
+   * Cleanup autosave timer.
    */
-
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -592,11 +514,8 @@ function StudentQuizAttempt() {
   }, []);
 
   /*
-   * -------------------------------------------------------
-   * Previous Question
-   * -------------------------------------------------------
+   * Previous question.
    */
-
   const goToPrevious = () => {
     if (currentQuestion > 0) {
       setCurrentQuestion(
@@ -606,11 +525,8 @@ function StudentQuizAttempt() {
   };
 
   /*
-   * -------------------------------------------------------
-   * Next Question
-   * -------------------------------------------------------
+   * Next question.
    */
-
   const goToNext = () => {
     if (
       quiz?.questions &&
@@ -624,11 +540,8 @@ function StudentQuizAttempt() {
   };
 
   /*
-   * -------------------------------------------------------
-   * Loading
-   * -------------------------------------------------------
+   * Loading.
    */
-
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -637,7 +550,6 @@ function StudentQuizAttempt() {
             size={18}
             className="animate-spin"
           />
-
           Loading quiz...
         </div>
       </div>
@@ -645,11 +557,8 @@ function StudentQuizAttempt() {
   }
 
   /*
-   * -------------------------------------------------------
-   * Error when quiz cannot be loaded
-   * -------------------------------------------------------
+   * Error when quiz cannot be loaded.
    */
-
   if (error && !quiz) {
     return (
       <div className="mx-auto max-w-2xl py-16 text-center">
@@ -674,11 +583,8 @@ function StudentQuizAttempt() {
   }
 
   /*
-   * -------------------------------------------------------
-   * Submitted screen
-   * -------------------------------------------------------
+   * Submitted screen.
    */
-
   if (submitted) {
     const isTest =
       quiz?.settings?.quizMode ===
@@ -709,9 +615,6 @@ function StudentQuizAttempt() {
               : "Your quiz has been submitted and your result is ready."}
           </p>
 
-          {/*
-           * Practice result
-           */}
           {!isTest &&
             submissionResult && (
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -773,11 +676,8 @@ function StudentQuizAttempt() {
   }
 
   /*
-   * -------------------------------------------------------
-   * Questions
-   * -------------------------------------------------------
+   * Questions.
    */
-
   const questions =
     quiz?.questions || [];
 
@@ -802,11 +702,8 @@ function StudentQuizAttempt() {
   }
 
   /*
-   * -------------------------------------------------------
-   * Derived values
-   * -------------------------------------------------------
+   * Derived values.
    */
-
   const selectedAnswer =
     answers[question._id];
 
@@ -829,11 +726,8 @@ function StudentQuizAttempt() {
     "test";
 
   /*
-   * -------------------------------------------------------
-   * Main UI
-   * -------------------------------------------------------
+   * Main UI.
    */
-
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-10">
       {/* Header */}
@@ -844,7 +738,6 @@ function StudentQuizAttempt() {
             className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary transition hover:text-text-primary"
           >
             <ArrowLeft size={16} />
-
             Exit Quiz
           </Link>
 
@@ -1019,12 +912,12 @@ function StudentQuizAttempt() {
           type="button"
           onClick={goToPrevious}
           disabled={
-            currentQuestion === 0
+            currentQuestion === 0 ||
+            submitting
           }
           className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-white px-4 py-2.5 text-sm font-semibold text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ArrowLeft size={16} />
-
           Previous
         </button>
 
@@ -1032,10 +925,10 @@ function StudentQuizAttempt() {
           <button
             type="button"
             onClick={goToNext}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-brand-violet px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            disabled={submitting}
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-brand-violet px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Next
-
             <ArrowRight size={16} />
           </button>
         ) : (
@@ -1048,7 +941,6 @@ function StudentQuizAttempt() {
             className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-brand-violet px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Send size={16} />
-
             Submit Quiz
           </button>
         )}

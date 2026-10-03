@@ -16,6 +16,7 @@ function InstructorQuizzes() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [publishingId, setPublishingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
 
   const fetchQuizzes = async () => {
@@ -34,13 +35,21 @@ function InstructorQuizzes() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to load quizzes");
+        throw new Error(
+          data.message || "Failed to load quizzes"
+        );
       }
 
       setQuizzes(data.quizzes || []);
     } catch (error) {
-      console.error("Fetch instructor quizzes error:", error);
-      setError(error.message || "Failed to load quizzes");
+      console.error(
+        "Fetch instructor quizzes error:",
+        error
+      );
+
+      setError(
+        error.message || "Failed to load quizzes"
+      );
     } finally {
       setLoading(false);
     }
@@ -57,38 +66,138 @@ function InstructorQuizzes() {
 
       const token = await getToken();
 
-      const response = await fetch(`/api/quizzes/${quizId}/publish`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `/api/quizzes/${quizId}/publish`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to publish quiz");
+        throw new Error(
+          data.message || "Failed to publish quiz"
+        );
       }
 
       setQuizzes((currentQuizzes) =>
         currentQuizzes.map((quiz) =>
           quiz._id === quizId
-            ? { ...quiz, status: "published" }
+            ? {
+                ...quiz,
+                status: "published",
+              }
             : quiz
         )
       );
     } catch (error) {
-      console.error("Publish quiz error:", error);
-      setError(error.message || "Failed to publish quiz");
+      console.error(
+        "Publish quiz error:",
+        error
+      );
+
+      setError(
+        error.message || "Failed to publish quiz"
+      );
     } finally {
       setPublishingId(null);
+    }
+  };
+
+  const handleDelete = async (quizId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this quiz? This action cannot be undone."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingId(quizId);
+      setError("");
+
+      const token = await getToken();
+
+      const response = await fetch(
+        `/api/quizzes/${quizId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to delete quiz"
+        );
+      }
+
+      setQuizzes((currentQuizzes) =>
+        currentQuizzes.filter(
+          (quiz) => quiz._id !== quizId
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Delete quiz error:",
+        error
+      );
+
+      setError(
+        error.message || "Failed to delete quiz"
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case "published":
+        return "Published";
+
+      case "completed":
+        return "Completed";
+
+      case "archived":
+        return "Archived";
+
+      default:
+        return "Draft";
+    }
+  };
+
+  const getStatusClasses = (status) => {
+    switch (status) {
+      case "published":
+        return "bg-emerald-50 text-emerald-600";
+
+      case "completed":
+        return "bg-blue-50 text-blue-600";
+
+      case "archived":
+        return "bg-slate-100 text-slate-600";
+
+      default:
+        return "bg-amber-50 text-amber-600";
     }
   };
 
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-text-secondary">Loading quizzes...</p>
+        <p className="text-sm text-text-secondary">
+          Loading quizzes...
+        </p>
       </div>
     );
   }
@@ -119,7 +228,9 @@ function InstructorQuizzes() {
       {/* Error */}
       {error && (
         <div className="flex items-center justify-between gap-4 rounded-xl border border-error/20 bg-error/5 px-4 py-3">
-          <p className="text-sm text-error">{error}</p>
+          <p className="text-sm text-error">
+            {error}
+          </p>
 
           <button
             type="button"
@@ -147,7 +258,8 @@ function InstructorQuizzes() {
           </h3>
 
           <p className="mx-auto mt-2 max-w-md text-sm text-text-secondary">
-            Create your first quiz to start assessing your students.
+            Create your first quiz to start assessing
+            your students.
           </p>
 
           <Link
@@ -158,12 +270,25 @@ function InstructorQuizzes() {
           </Link>
         </div>
       ) : (
-        /* Quiz Grid */
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {quizzes.map((quiz) => {
-            const questionCount = quiz.questions?.length || 0;
-            const timeLimit = quiz.settings?.timeLimit || 0;
-            const mode = quiz.settings?.quizMode || "practice";
+            const questionCount =
+              quiz.questions?.length || 0;
+
+            const timeLimit =
+              quiz.settings?.timeLimit || 0;
+
+            const mode =
+              quiz.settings?.quizMode || "practice";
+
+            const isDraft =
+              quiz.status === "draft";
+
+            const isArchived =
+              quiz.status === "archived";
+
+            const isCompleted =
+              quiz.status === "completed";
 
             return (
               <div
@@ -173,19 +298,11 @@ function InstructorQuizzes() {
                 {/* Top */}
                 <div className="flex items-center justify-between gap-3">
                   <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      quiz.status === "published"
-                        ? "bg-emerald-50 text-emerald-600"
-                        : quiz.status === "archived"
-                        ? "bg-slate-100 text-slate-600"
-                        : "bg-amber-50 text-amber-600"
-                    }`}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClasses(
+                      quiz.status
+                    )}`}
                   >
-                    {quiz.status === "published"
-                      ? "Published"
-                      : quiz.status === "archived"
-                      ? "Archived"
-                      : "Draft"}
+                    {getStatusLabel(quiz.status)}
                   </span>
 
                   <span
@@ -195,7 +312,9 @@ function InstructorQuizzes() {
                         : "bg-violet-50 text-violet-600"
                     }`}
                   >
-                    {mode === "test" ? "Test" : "Practice"}
+                    {mode === "test"
+                      ? "Test"
+                      : "Practice"}
                   </span>
                 </div>
 
@@ -206,7 +325,8 @@ function InstructorQuizzes() {
                   </h3>
 
                   <p className="mt-2 line-clamp-3 text-sm leading-6 text-text-secondary">
-                    {quiz.description || "No description provided."}
+                    {quiz.description ||
+                      "No description provided."}
                   </p>
                 </div>
 
@@ -214,23 +334,31 @@ function InstructorQuizzes() {
                 <div className="mt-5 flex flex-wrap gap-4 border-t border-border pt-4">
                   <div className="flex items-center gap-1.5 text-xs text-text-secondary">
                     <FileQuestion size={14} />
+
                     {questionCount}{" "}
-                    {questionCount === 1 ? "Question" : "Questions"}
+                    {questionCount === 1
+                      ? "Question"
+                      : "Questions"}
                   </div>
 
                   <div className="flex items-center gap-1.5 text-xs text-text-secondary">
                     <Clock3 size={14} />
-                    {timeLimit} min
+{timeLimit > 0 ? `${timeLimit} min` : "No limit"}
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="mt-5 flex gap-2">
-                  {quiz.status === "draft" && (
+                  {/* Publish only for drafts */}
+                  {isDraft && (
                     <button
                       type="button"
-                      onClick={() => handlePublish(quiz._id)}
-                      disabled={publishingId === quiz._id}
+                      onClick={() =>
+                        handlePublish(quiz._id)
+                      }
+                      disabled={
+                        publishingId === quiz._id
+                      }
                       className="flex-1 rounded-button bg-brand-violet px-3 py-2.5 text-sm font-medium text-white transition hover:bg-brand-indigo disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {publishingId === quiz._id
@@ -239,21 +367,43 @@ function InstructorQuizzes() {
                     </button>
                   )}
 
-                  <Link
-                    to={`/instructor/quizzes/create?quizId=${quiz._id}`}
-                    className="inline-flex items-center justify-center gap-2 rounded-button border border-border px-3 py-2.5 text-sm font-medium text-text-primary transition hover:border-border-hover hover:bg-background-elevated"
-                  >
-                    <Pencil size={14} />
-                    Edit
-                  </Link>
+                  {/* Edit only when quiz is not archived */}
+                  {!isArchived && (
+                    <Link
+                      to={`/instructor/quizzes/create?quizId=${quiz._id}`}
+                      className={`inline-flex items-center justify-center gap-2 rounded-button border border-border px-3 py-2.5 text-sm font-medium text-text-primary transition hover:border-border-hover hover:bg-background-elevated ${
+                        isDraft ? "" : "flex-1"
+                      }`}
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </Link>
+                  )}
 
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-button border border-border px-3 py-2.5 text-text-secondary transition hover:border-error/30 hover:bg-error/5 hover:text-error"
-                    title="Delete quiz"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  {/* Delete only when quiz is not completed/archived */}
+                  {!isCompleted &&
+                    !isArchived && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDelete(quiz._id)
+                        }
+                        disabled={
+                          deletingId === quiz._id
+                        }
+                        className="inline-flex items-center justify-center rounded-button border border-border px-3 py-2.5 text-text-secondary transition hover:border-error/30 hover:bg-error/5 hover:text-error disabled:cursor-not-allowed disabled:opacity-50"
+                        title="Delete quiz"
+                      >
+                        {deletingId === quiz._id ? (
+                          <RefreshCw
+                            size={15}
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                      </button>
+                    )}
                 </div>
               </div>
             );

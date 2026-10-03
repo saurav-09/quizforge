@@ -1,9 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@clerk/react";
 
 function CreateQuiz() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { getToken } = useAuth();
+
+  const searchParams = new URLSearchParams(location.search);
+  const quizId = searchParams.get("quizId");
+
+  const isEditMode = Boolean(quizId);
 
   const [quizMode, setQuizMode] = useState("practice");
 
@@ -11,6 +19,59 @@ function CreateQuiz() {
     title: "",
     description: "",
   });
+
+  const [loading, setLoading] = useState(isEditMode);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!quizId) {
+      return;
+    }
+
+    const fetchQuiz = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = await getToken();
+
+        const response = await fetch(`/api/quizzes/${quizId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Failed to load quiz"
+          );
+        }
+
+        const quiz = data.quiz;
+
+        setFormData({
+          title: quiz.title || "",
+          description: quiz.description || "",
+        });
+
+        setQuizMode(
+          quiz.settings?.quizMode || "practice"
+        );
+      } catch (error) {
+        console.error("Fetch quiz for editing error:", error);
+
+        setError(
+          error.message || "Failed to load quiz"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuiz();
+  }, [quizId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -22,20 +83,65 @@ function CreateQuiz() {
   };
 
   const handleContinue = () => {
-    if (!formData.title.trim()) {
-      return;
-    }
+  if (!formData.title.trim()) {
+    return;
+  }
 
-    navigate("/instructor/quizzes/create/questions", {
+  const params = new URLSearchParams();
+
+  if (quizId) {
+    params.set("quizId", quizId);
+  }
+
+  navigate(
+    `/instructor/quizzes/create/questions${
+      params.toString()
+        ? `?${params.toString()}`
+        : ""
+    }`,
+    {
       state: {
         ...formData,
         quizMode,
+        quizId,
+        isEditMode,
       },
-    });
-  };
+    }
+  );
+};
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-text-secondary">
+          Loading quiz...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="rounded-card border border-error/20 bg-error/5 p-6">
+          <p className="text-sm text-error">
+            {error}
+          </p>
+
+          <Link
+            to="/instructor/quizzes"
+            className="mt-4 inline-flex rounded-button bg-brand-violet px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+          >
+            Back to Quizzes
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <Link
           to="/instructor/quizzes"
@@ -46,15 +152,18 @@ function CreateQuiz() {
 
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-text-primary">
-            Create Quiz
+            {isEditMode ? "Edit Quiz" : "Create Quiz"}
           </h2>
 
           <p className="mt-1 text-sm text-text-secondary">
-            Create a new quiz for your students.
+            {isEditMode
+              ? "Update your quiz information."
+              : "Create a new quiz for your students."}
           </p>
         </div>
       </div>
 
+      {/* Quiz Type */}
       <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
         <div>
           <h3 className="text-sm font-semibold text-text-primary">
@@ -83,8 +192,8 @@ function CreateQuiz() {
                 </h4>
 
                 <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  Students can see their score, correct answers, and
-                  explanations after submission.
+                  Students can see their score, correct answers,
+                  and explanations after submission.
                 </p>
               </div>
 
@@ -113,8 +222,8 @@ function CreateQuiz() {
                 </h4>
 
                 <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  Students only see a submission confirmation. Results
-                  are shared by the instructor later.
+                  Students only see a submission confirmation.
+                  Results are shared by the instructor later.
                 </p>
               </div>
 
@@ -129,6 +238,7 @@ function CreateQuiz() {
         </div>
       </div>
 
+      {/* Basic Information */}
       <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
         <h3 className="text-sm font-semibold text-text-primary">
           Basic information
@@ -167,6 +277,7 @@ function CreateQuiz() {
         </div>
       </div>
 
+      {/* Actions */}
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         <Link
           to="/instructor/quizzes"
@@ -182,7 +293,7 @@ function CreateQuiz() {
           disabled={!formData.title.trim()}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#8B5CF6] px-4 text-sm font-medium text-white transition-colors hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Continue
+          {isEditMode ? "Continue Editing" : "Continue"}
           <ArrowRight size={15} />
         </button>
       </div>

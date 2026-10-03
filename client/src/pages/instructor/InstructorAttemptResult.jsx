@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/react";
+import {
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 
 function InstructorAttemptResult() {
   const { quizId, attemptId } = useParams();
@@ -31,11 +37,12 @@ function InstructorAttemptResult() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to fetch attempt result"
+          data.message ||
+            "Failed to fetch attempt result"
         );
       }
 
-      setResult(data.result);
+      setResult(data.result || null);
     } catch (error) {
       console.error(
         "Fetch instructor attempt result error:",
@@ -43,7 +50,8 @@ function InstructorAttemptResult() {
       );
 
       setError(
-        error.message || "Failed to load attempt result"
+        error.message ||
+          "Failed to load attempt result"
       );
     } finally {
       setLoading(false);
@@ -55,18 +63,39 @@ function InstructorAttemptResult() {
   }, [quizId, attemptId]);
 
   const formatTime = (seconds) => {
-    if (!seconds || seconds < 0) {
+    const safeSeconds = Number(seconds);
+
+    if (
+      !Number.isFinite(safeSeconds) ||
+      safeSeconds < 0
+    ) {
       return "0 min";
     }
 
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
+    const totalSeconds = Math.floor(
+      safeSeconds
+    );
 
-    if (minutes === 0) {
-      return `${remainingSeconds}s`;
+    const hours = Math.floor(
+      totalSeconds / 3600
+    );
+
+    const minutes = Math.floor(
+      (totalSeconds % 3600) / 60
+    );
+
+    const remainingSeconds =
+      totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
     }
 
-    return `${minutes}m ${remainingSeconds}s`;
+    if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+
+    return `${remainingSeconds}s`;
   };
 
   const formatDate = (date) => {
@@ -74,15 +103,32 @@ function InstructorAttemptResult() {
       return "—";
     }
 
-    return new Date(date).toLocaleString();
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "—";
+    }
+
+    return parsedDate.toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-text-secondary">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <Loader2
+            size={18}
+            className="animate-spin"
+          />
+
           Loading attempt result...
-        </p>
+        </div>
       </div>
     );
   }
@@ -90,7 +136,9 @@ function InstructorAttemptResult() {
   if (error) {
     return (
       <div className="rounded-card border border-error/20 bg-error/5 p-6">
-        <p className="text-sm text-error">{error}</p>
+        <p className="text-sm text-error">
+          {error}
+        </p>
 
         <button
           type="button"
@@ -104,21 +152,45 @@ function InstructorAttemptResult() {
   }
 
   if (!result) {
-    return null;
+    return (
+      <div className="rounded-card border border-border bg-surface p-8 text-center">
+        <p className="text-sm text-text-secondary">
+          Attempt result not found.
+        </p>
+
+        <Link
+          to={`/instructor/results/${quizId}`}
+          className="mt-4 inline-flex rounded-button bg-brand-violet px-4 py-2 text-sm font-medium text-white"
+        >
+          Back to Quiz Results
+        </Link>
+      </div>
+    );
   }
 
-  const correctAnswers = result.questions.filter(
+  const questions = Array.isArray(
+    result.questions
+  )
+    ? result.questions
+    : [];
+
+  const correctAnswers = questions.filter(
     (question) => question.isCorrect
   ).length;
 
-  const incorrectAnswers = result.questions.filter(
+  const incorrectAnswers = questions.filter(
     (question) =>
       question.selectedAnswer !== null &&
+      question.selectedAnswer !== undefined &&
+      question.selectedAnswer !== "" &&
       !question.isCorrect
   ).length;
 
-  const unanswered = result.questions.filter(
-    (question) => question.selectedAnswer === null
+  const unanswered = questions.filter(
+    (question) =>
+      question.selectedAnswer === null ||
+      question.selectedAnswer === undefined ||
+      question.selectedAnswer === ""
   ).length;
 
   return (
@@ -128,7 +200,9 @@ function InstructorAttemptResult() {
         <button
           type="button"
           onClick={() =>
-            navigate(`/instructor/results/${quizId}`)
+            navigate(
+              `/instructor/results/${quizId}`
+            )
           }
           className="mb-4 text-sm font-medium text-brand-violet hover:underline"
         >
@@ -140,15 +214,18 @@ function InstructorAttemptResult() {
         </p>
 
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-text-primary">
-          {result.student.name}
+          {result.student?.name ||
+            "Unknown Student"}
         </h1>
 
         <p className="mt-2 text-sm text-text-secondary">
-          {result.student.email}
+          {result.student?.email ||
+            "No email available"}
         </p>
 
         <p className="mt-1 text-sm text-text-muted">
-          {result.quiz.title}
+          {result.quiz?.title ||
+            "Quiz unavailable"}
         </p>
       </div>
 
@@ -156,12 +233,16 @@ function InstructorAttemptResult() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Score"
-          value={`${result.score}/${result.totalPoints}`}
+          value={`${result.score ?? 0}/${
+            result.totalPoints ?? 0
+          }`}
         />
 
         <StatCard
           label="Percentage"
-          value={`${result.percentage}%`}
+          value={`${Number(
+            result.percentage
+          ) || 0}%`}
         />
 
         <StatCard
@@ -171,7 +252,9 @@ function InstructorAttemptResult() {
 
         <StatCard
           label="Time Taken"
-          value={formatTime(result.timeTaken)}
+          value={formatTime(
+            result.timeTaken
+          )}
         />
       </div>
 
@@ -184,22 +267,32 @@ function InstructorAttemptResult() {
         <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <InfoItem
             label="Quiz Mode"
-            value={result.quiz.quizMode}
+            value={
+              result.quiz?.quizMode ||
+              "practice"
+            }
           />
 
           <InfoItem
             label="Submission"
-            value={result.submissionType}
+            value={
+              result.submissionType ||
+              "manual"
+            }
           />
 
           <InfoItem
             label="Started"
-            value={formatDate(result.startedAt)}
+            value={formatDate(
+              result.startedAt
+            )}
           />
 
           <InfoItem
             label="Submitted"
-            value={formatDate(result.submittedAt)}
+            value={formatDate(
+              result.submittedAt
+            )}
           />
         </div>
       </div>
@@ -233,19 +326,33 @@ function InstructorAttemptResult() {
           </h2>
 
           <p className="mt-1 text-sm text-text-secondary">
-            Review every question and the student's answers.
+            Review every question and the
+            student's answers.
           </p>
         </div>
 
-        <div className="space-y-5">
-          {result.questions.map((question, index) => (
-            <QuestionCard
-              key={question.questionId}
-              question={question}
-              index={index}
-            />
-          ))}
-        </div>
+        {questions.length === 0 ? (
+          <div className="rounded-card border border-border bg-surface p-8 text-center">
+            <p className="text-sm text-text-secondary">
+              No question details are available.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {questions.map(
+              (question, index) => (
+                <QuestionCard
+                  key={
+                    question.questionId ||
+                    index
+                  }
+                  question={question}
+                  index={index}
+                />
+              )
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bottom Navigation */}
@@ -290,20 +397,26 @@ function InfoItem({ label, value }) {
       </p>
 
       <p className="mt-1 text-sm font-medium capitalize text-text-primary">
-        {value}
+        {value ?? "—"}
       </p>
     </div>
   );
 }
 
-function SummaryCard({ label, value, className }) {
+function SummaryCard({
+  label,
+  value,
+  className,
+}) {
   return (
     <div className="rounded-card border border-border bg-surface p-5">
       <p className="text-sm text-text-secondary">
         {label}
       </p>
 
-      <p className={`mt-2 text-2xl font-semibold ${className}`}>
+      <p
+        className={`mt-2 text-2xl font-semibold ${className}`}
+      >
         {value}
       </p>
     </div>
@@ -311,24 +424,28 @@ function SummaryCard({ label, value, className }) {
 }
 
 function QuestionCard({ question, index }) {
-  const isUnanswered = question.selectedAnswer === null;
+  const isUnanswered =
+    question.selectedAnswer === null ||
+    question.selectedAnswer === undefined ||
+    question.selectedAnswer === "";
 
   return (
     <div className="rounded-card border border-border bg-surface p-6">
       {/* Question Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-medium text-text-muted">
             Question {index + 1}
           </p>
 
           <h3 className="mt-1 text-base font-medium leading-7 text-text-primary">
-            {question.question}
+            {question.question ||
+              "Question unavailable"}
           </h3>
         </div>
 
         <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+          className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
             isUnanswered
               ? "bg-background-elevated text-text-secondary"
               : question.isCorrect
@@ -336,67 +453,85 @@ function QuestionCard({ question, index }) {
               : "bg-error/10 text-error"
           }`}
         >
-          {isUnanswered
-            ? "Unanswered"
-            : question.isCorrect
-            ? "Correct"
-            : "Incorrect"}
+          {isUnanswered ? (
+            <>
+              <Clock3 size={13} />
+              Unanswered
+            </>
+          ) : question.isCorrect ? (
+            <>
+              <CheckCircle2 size={13} />
+              Correct
+            </>
+          ) : (
+            <>
+              <XCircle size={13} />
+              Incorrect
+            </>
+          )}
         </span>
       </div>
 
       {/* Options */}
       <div className="mt-5 space-y-2">
-        {question.options?.map((option, optionIndex) => {
-          const isSelected =
-            question.selectedAnswer === option;
+        {question.options?.map(
+          (option, optionIndex) => {
+            const isSelected =
+              question.selectedAnswer ===
+              option;
 
-          const isCorrect =
-            question.correctAnswer === option;
+            const isCorrect =
+              question.correctAnswer ===
+              option;
 
-          let optionClass =
-            "border-border bg-background";
+            let optionClass =
+              "border-border bg-background";
 
-          if (isCorrect) {
-            optionClass =
-              "border-success/30 bg-success/5";
-          } else if (isSelected) {
-            optionClass =
-              "border-error/30 bg-error/5";
-          }
+            if (isCorrect) {
+              optionClass =
+                "border-success/30 bg-success/5";
+            } else if (isSelected) {
+              optionClass =
+                "border-error/30 bg-error/5";
+            }
 
-          return (
-            <div
-              key={optionIndex}
-              className={`rounded-xl border p-3 ${optionClass}`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background-elevated text-xs font-medium text-text-secondary">
-                    {String.fromCharCode(65 + optionIndex)}
-                  </span>
-
-                  <span className="text-sm text-text-primary">
-                    {option}
-                  </span>
-                </div>
-
-                <div className="shrink-0 text-xs font-medium">
-                  {isCorrect && (
-                    <span className="text-success">
-                      Correct Answer
+            return (
+              <div
+                key={optionIndex}
+                className={`rounded-xl border p-3 ${optionClass}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background-elevated text-xs font-medium text-text-secondary">
+                      {String.fromCharCode(
+                        65 + optionIndex
+                      )}
                     </span>
-                  )}
 
-                  {!isCorrect && isSelected && (
-                    <span className="text-error">
-                      Student Answer
+                    <span className="break-words text-sm text-text-primary">
+                      {option}
                     </span>
-                  )}
+                  </div>
+
+                  <div className="shrink-0 text-xs font-medium">
+                    {isCorrect && (
+                      <span className="text-success">
+                        Correct Answer
+                      </span>
+                    )}
+
+                    {!isCorrect &&
+                      isSelected && (
+                        <span className="text-error">
+                          Student Answer
+                        </span>
+                      )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          }
+        )}
       </div>
 
       {/* Answer Details */}
@@ -415,7 +550,9 @@ function QuestionCard({ question, index }) {
                 : "text-error"
             }`}
           >
-            {question.selectedAnswer || "Not answered"}
+            {isUnanswered
+              ? "Not answered"
+              : question.selectedAnswer}
           </p>
         </div>
 
@@ -425,7 +562,8 @@ function QuestionCard({ question, index }) {
           </p>
 
           <p className="mt-1 text-sm font-medium text-success">
-            {question.correctAnswer}
+            {question.correctAnswer ||
+              "—"}
           </p>
         </div>
       </div>
@@ -437,7 +575,8 @@ function QuestionCard({ question, index }) {
         </span>
 
         <span className="text-sm font-semibold text-text-primary">
-          {question.pointsEarned}/{question.points}
+          {question.pointsEarned ?? 0}/
+          {question.points ?? 0}
         </span>
       </div>
 

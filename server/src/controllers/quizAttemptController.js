@@ -293,24 +293,18 @@ const autoSubmitAttempt = async (
 |
 */
 
-export const startQuiz = async (
-  req,
-  res
-) => {
+export const startQuiz = async (req, res) => {
   try {
-    const { quizId } =
-      req.params;
-
-    const studentId =
-      req.user._id;
+    const { quizId } = req.params;
+    const studentId = req.user._id;
 
     /*
-     * Find quiz.
+     * -------------------------------------------------------
+     * Find quiz
+     * -------------------------------------------------------
      */
-    const quiz =
-      await Quiz.findById(
-        quizId
-      );
+
+    const quiz = await Quiz.findById(quizId);
 
     if (!quiz) {
       return res.status(404).json({
@@ -320,91 +314,85 @@ export const startQuiz = async (
     }
 
     /*
-     * Quiz must be published.
+     * -------------------------------------------------------
+     * Quiz must be published
+     * -------------------------------------------------------
      */
-    if (
-      quiz.status !== "published"
-    ) {
+
+    if (quiz.status !== "published") {
       return res.status(400).json({
         success: false,
-        message:
-          "This quiz is not available",
+        message: "This quiz is not available",
       });
     }
 
+    const now = new Date();
+
     /*
-     * Check scheduled start time.
+     * -------------------------------------------------------
+     * Check quiz start time
+     * -------------------------------------------------------
      */
+
     if (
       quiz.startTime &&
-      new Date() <
-        new Date(quiz.startTime)
+      now < new Date(quiz.startTime)
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "This quiz has not started yet",
+        message: "This quiz has not started yet",
       });
     }
 
     /*
-     * Check scheduled end time.
+     * -------------------------------------------------------
+     * Check quiz end time
+     * -------------------------------------------------------
      */
+
     if (
       quiz.endTime &&
-      new Date() >=
-        new Date(quiz.endTime)
+      now >= new Date(quiz.endTime)
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "This quiz has already ended",
+        message: "This quiz has already ended",
       });
     }
 
     /*
      * -------------------------------------------------------
-     * IMPORTANT:
-     * Check for an existing in-progress attempt.
-     *
-     * This prevents duplicate attempts when the student
-     * refreshes or accidentally starts the quiz again.
+     * Find existing active attempt
      * -------------------------------------------------------
      */
 
-    let attempt =
-      await QuizAttempt.findOne({
-        quiz: quizId,
-        student: studentId,
-        status: "in-progress",
-      }).sort({
-        createdAt: -1,
-      });
+    let attempt = await QuizAttempt.findOne({
+      quiz: quizId,
+      student: studentId,
+      status: "in-progress",
+    });
 
     /*
-     * If existing attempt has expired,
-     * automatically submit it first.
+     * -------------------------------------------------------
+     * Existing attempt expired
+     * -------------------------------------------------------
      */
+
     if (
       attempt &&
-      isAttemptExpired(
+      isAttemptExpired(attempt, quiz)
+    ) {
+      await autoSubmitAttempt(
         attempt,
         quiz
-      )
-    ) {
-      attempt =
-        await autoSubmitAttempt(
-          attempt,
-          quiz
-        );
+      );
 
       /*
-       * Since this attempt has now been submitted,
-       * don't create another attempt unless the
-       * quiz allows another attempt.
-       *
-       * Continue below to check attempts.
+       * The expired attempt is now submitted.
+       * Continue below to check whether another
+       * attempt is allowed.
        */
+
       attempt = null;
     }
 
@@ -423,19 +411,26 @@ export const startQuiz = async (
 
       return res.status(200).json({
         success: true,
+
         message:
           "Existing quiz attempt resumed",
+
         attemptId:
           attempt._id,
+
         startedAt:
           attempt.startedAt,
+
         deadline,
+
         status:
           attempt.status,
+
         answers:
           buildAnswerObject(
             attempt.answers
           ),
+
         quiz:
           buildSafeQuiz(quiz),
       });
@@ -445,10 +440,16 @@ export const startQuiz = async (
      * -------------------------------------------------------
      * Check attempt limit
      * -------------------------------------------------------
+     *
+     * IMPORTANT:
+     * Quiz settings use attemptsAllowed,
+     * not attempts.
      */
 
     const maxAttempts =
-      quiz.settings?.attempts || 1;
+      Number(
+        quiz.settings?.attemptsAllowed
+      ) || 1;
 
     const attemptCount =
       await QuizAttempt.countDocuments({
@@ -458,8 +459,7 @@ export const startQuiz = async (
       });
 
     if (
-      attemptCount >=
-      maxAttempts
+      attemptCount >= maxAttempts
     ) {
       return res.status(400).json({
         success: false,
@@ -491,16 +491,23 @@ export const startQuiz = async (
 
     return res.status(201).json({
       success: true,
+
       message:
         "Quiz started successfully",
+
       attemptId:
         attempt._id,
+
       startedAt:
         attempt.startedAt,
+
       deadline,
+
       status:
         attempt.status,
+
       answers: {},
+
       quiz:
         buildSafeQuiz(quiz),
     });
@@ -533,47 +540,42 @@ export const startQuiz = async (
 |
 */
 
-export const getQuizAttempt = async (
-  req,
-  res
-) => {
+export const getQuizAttempt = async (req, res) => {
   try {
-    const { attemptId } =
-      req.params;
+    const { attemptId } = req.params;
 
-    const studentId =
-      req.user._id;
+    const studentId = req.user._id;
 
     /*
-     * Find attempt.
+     * -------------------------------------------------------
+     * Find student's own attempt
+     * -------------------------------------------------------
      */
-    const attempt =
-      await QuizAttempt.findOne({
-        _id: attemptId,
-        student: studentId,
-      });
+
+    const attempt = await QuizAttempt.findOne({
+      _id: attemptId,
+      student: studentId,
+    });
 
     if (!attempt) {
       return res.status(404).json({
         success: false,
-        message:
-          "Quiz attempt not found",
+        message: "Quiz attempt not found",
       });
     }
 
     /*
-     * Find quiz.
+     * -------------------------------------------------------
+     * Find quiz
+     * -------------------------------------------------------
      */
-    const quiz =
-      await Quiz.findById(
-        attempt.quiz
-      );
+
+    const quiz = await Quiz.findById(attempt.quiz);
 
     if (!quiz) {
       return res.status(404).json({
         success: false,
-        message:
-          "Quiz not found",
+        message: "Quiz not found",
       });
     }
 
@@ -585,12 +587,8 @@ export const getQuizAttempt = async (
      */
 
     if (
-      attempt.status ===
-        "in-progress" &&
-      isAttemptExpired(
-        attempt,
-        quiz
-      )
+      attempt.status === "in-progress" &&
+      isAttemptExpired(attempt, quiz)
     ) {
       await autoSubmitAttempt(
         attempt,
@@ -599,8 +597,11 @@ export const getQuizAttempt = async (
     }
 
     /*
-     * Calculate deadline.
+     * -------------------------------------------------------
+     * Calculate deadline
+     * -------------------------------------------------------
      */
+
     const deadline =
       getAttemptDeadline(
         attempt,
@@ -609,55 +610,51 @@ export const getQuizAttempt = async (
 
     /*
      * -------------------------------------------------------
-     * If submitted, return result information.
+     * If submitted, return result information
      * -------------------------------------------------------
      */
 
     let result = null;
 
-    if (
-      attempt.status ===
-      "submitted"
-    ) {
+    if (attempt.status === "submitted") {
       result = {
-        score:
-          attempt.score,
-        totalPoints:
-          attempt.totalPoints,
-        percentage:
-          attempt.percentage,
-        timeTaken:
-          attempt.timeTaken,
+        score: attempt.score,
+        totalPoints: attempt.totalPoints,
+        percentage: attempt.percentage,
+        timeTaken: attempt.timeTaken,
       };
     }
+
+    /*
+     * -------------------------------------------------------
+     * Return attempt
+     * -------------------------------------------------------
+     *
+     * buildSafeQuiz() prevents correct answers and
+     * explanations from being exposed.
+     */
 
     return res.status(200).json({
       success: true,
 
-      attemptId:
-        attempt._id,
+      attemptId: attempt._id,
 
-      status:
-        attempt.status,
+      status: attempt.status,
 
-      startedAt:
-        attempt.startedAt,
+      startedAt: attempt.startedAt,
 
-      submittedAt:
-        attempt.submittedAt,
+      submittedAt: attempt.submittedAt,
 
       deadline,
 
       submissionType:
         attempt.submissionType,
 
-      answers:
-        attempt.answers,
+      answers: attempt.answers,
 
       result,
 
-      quiz:
-        buildSafeQuiz(quiz),
+      quiz: buildSafeQuiz(quiz),
     });
   } catch (error) {
     console.error(
@@ -667,8 +664,7 @@ export const getQuizAttempt = async (
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to load quiz attempt",
+      message: "Failed to load quiz attempt",
     });
   }
 };
@@ -682,165 +678,202 @@ export const getQuizAttempt = async (
 |
 */
 
-export const saveQuizProgress =
-  async (req, res) => {
-    try {
-      const { attemptId } =
-        req.params;
+export const saveQuizProgress = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const { answers } = req.body;
 
-      const { answers } =
-        req.body;
+    const studentId = req.user._id;
 
-      const studentId =
-        req.user._id;
+    /*
+     * -------------------------------------------------------
+     * Validate answers
+     * -------------------------------------------------------
+     */
 
-      /*
-       * Validate answers.
-       */
-      if (!Array.isArray(answers)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Answers must be an array",
-        });
-      }
-
-      /*
-       * Find attempt.
-       */
-      const attempt =
-        await QuizAttempt.findOne({
-          _id: attemptId,
-          student: studentId,
-        });
-
-      if (!attempt) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Quiz attempt not found",
-        });
-      }
-
-      /*
-       * Cannot save submitted attempt.
-       */
-      if (
-        attempt.status ===
-        "submitted"
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Quiz attempt has already been submitted",
-        });
-      }
-
-      /*
-       * Find quiz.
-       */
-      const quiz =
-        await Quiz.findById(
-          attempt.quiz
-        );
-
-      if (!quiz) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Quiz not found",
-        });
-      }
-
-      /*
-       * -------------------------------------------------------
-       * Check deadline.
-       * -------------------------------------------------------
-       */
-
-      if (
-        isAttemptExpired(
-          attempt,
-          quiz
-        )
-      ) {
-        await autoSubmitAttempt(
-          attempt,
-          quiz
-        );
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Quiz time has expired",
-          expired: true,
-        });
-      }
-
-      /*
-       * -------------------------------------------------------
-       * Validate and store answers.
-       *
-       * We only store:
-       *
-       * questionId
-       * selectedAnswer
-       *
-       * Correctness is calculated during submission.
-       * -------------------------------------------------------
-       */
-
-      const validQuestionIds =
-        new Set(
-          quiz.questions.map(
-            (question) =>
-              question._id.toString()
-          )
-        );
-
-      const sanitizedAnswers =
-        answers
-          .filter(
-            (answer) =>
-              answer &&
-              answer.questionId &&
-              validQuestionIds.has(
-                answer.questionId.toString()
-              )
-          )
-          .map(
-            (answer) => ({
-              questionId:
-                answer.questionId,
-              selectedAnswer:
-                answer.selectedAnswer ??
-                null,
-            })
-          );
-
-      attempt.answers =
-        sanitizedAnswers;
-
-      await attempt.save();
-
-      return res.status(200).json({
-        success: true,
-        message:
-          "Progress saved successfully",
-      });
-    } catch (error) {
-      console.error(
-        "Save quiz progress error:",
-        error
-      );
-
-      return res.status(500).json({
+    if (!Array.isArray(answers)) {
+      return res.status(400).json({
         success: false,
-        message:
-          "Failed to save quiz progress",
+        message: "Answers must be an array",
       });
     }
-  };
+
+    /*
+     * -------------------------------------------------------
+     * Find student's own attempt
+     * -------------------------------------------------------
+     */
+
+    const attempt = await QuizAttempt.findOne({
+      _id: attemptId,
+      student: studentId,
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz attempt not found",
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Cannot modify submitted attempt
+     * -------------------------------------------------------
+     */
+
+    if (attempt.status === "submitted") {
+      return res.status(400).json({
+        success: false,
+        message: "Quiz attempt has already been submitted",
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Find quiz
+     * -------------------------------------------------------
+     */
+
+    const quiz = await Quiz.findById(attempt.quiz);
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz not found",
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Check deadline
+     * -------------------------------------------------------
+     */
+
+    if (isAttemptExpired(attempt, quiz)) {
+      await autoSubmitAttempt(attempt, quiz);
+
+      return res.status(400).json({
+        success: false,
+        message: "Quiz time has expired",
+        expired: true,
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Create question map
+     *
+     * Used to verify:
+     *
+     * 1. Question belongs to this quiz
+     * 2. Selected answer belongs to that question
+     * -------------------------------------------------------
+     */
+
+    const questionMap = new Map();
+
+    for (const question of quiz.questions) {
+      questionMap.set(
+        question._id.toString(),
+        question
+      );
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Validate and sanitize answers
+     * -------------------------------------------------------
+     */
+
+    const sanitizedAnswers = [];
+
+    for (const answer of answers) {
+      if (!answer || !answer.questionId) {
+        continue;
+      }
+
+      const question = questionMap.get(
+        answer.questionId.toString()
+      );
+
+      /*
+       * Ignore questions that don't belong
+       * to this quiz.
+       */
+
+      if (!question) {
+        continue;
+      }
+
+      const selectedAnswer =
+        answer.selectedAnswer ?? null;
+
+      /*
+       * Unanswered question is allowed.
+       */
+
+      if (
+        selectedAnswer === null ||
+        selectedAnswer === ""
+      ) {
+        sanitizedAnswers.push({
+          questionId: question._id,
+          selectedAnswer: null,
+        });
+
+        continue;
+      }
+
+      /*
+       * -------------------------------------------------------
+       * Validate selected option
+       * -------------------------------------------------------
+       */
+
+      const isValidOption =
+        Array.isArray(question.options) &&
+        question.options.includes(selectedAnswer);
+
+      if (!isValidOption) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid answer for question ${question._id}`,
+        });
+      }
+
+      sanitizedAnswers.push({
+        questionId: question._id,
+        selectedAnswer,
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Save progress
+     * -------------------------------------------------------
+     */
+
+    attempt.answers = sanitizedAnswers;
+
+    await attempt.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Progress saved successfully",
+    });
+  } catch (error) {
+    console.error(
+      "Save quiz progress error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save quiz progress",
+    });
+  }
+};
 
 /*
 |--------------------------------------------------------------------------
@@ -851,157 +884,198 @@ export const saveQuizProgress =
 |
 */
 
-export const submitQuiz = async (
-  req,
-  res
-) => {
+export const submitQuiz = async (req, res) => {
   try {
-    const { attemptId } =
-      req.params;
+    const { attemptId } = req.params;
 
-    const {
-      answers = [],
-    } = req.body;
+    const { answers = [] } = req.body;
 
-    const studentId =
-      req.user._id;
+    const studentId = req.user._id;
 
     /*
-     * Find attempt.
+     * -------------------------------------------------------
+     * Find student's own attempt
+     * -------------------------------------------------------
      */
-    const attempt =
-      await QuizAttempt.findOne({
-        _id: attemptId,
-        student: studentId,
-      });
+
+    const attempt = await QuizAttempt.findOne({
+      _id: attemptId,
+      student: studentId,
+    });
 
     if (!attempt) {
       return res.status(404).json({
         success: false,
-        message:
-          "Quiz attempt not found",
+        message: "Quiz attempt not found",
       });
     }
 
     /*
-     * Prevent duplicate submission.
+     * -------------------------------------------------------
+     * Prevent duplicate submission
+     * -------------------------------------------------------
      */
-    if (
-      attempt.status ===
-      "submitted"
-    ) {
+
+    if (attempt.status === "submitted") {
       return res.status(400).json({
         success: false,
-        message:
-          "Quiz attempt has already been submitted",
+        message: "Quiz attempt has already been submitted",
       });
     }
 
     /*
-     * Find quiz.
+     * -------------------------------------------------------
+     * Find quiz
+     * -------------------------------------------------------
      */
-    const quiz =
-      await Quiz.findById(
-        attempt.quiz
-      );
+
+    const quiz = await Quiz.findById(attempt.quiz);
 
     if (!quiz) {
       return res.status(404).json({
         success: false,
-        message:
-          "Quiz not found",
+        message: "Quiz not found",
       });
     }
 
     /*
      * -------------------------------------------------------
-     * Check deadline.
+     * Check deadline
      *
-     * If current time is beyond deadline,
-     * submission type becomes automatic.
+     * If the attempt has expired, it will still be submitted,
+     * but the submission type will be automatic.
      * -------------------------------------------------------
      */
 
-    const expired =
-      isAttemptExpired(
-        attempt,
-        quiz
-      );
+    const expired = isAttemptExpired(attempt, quiz);
 
-    const finalSubmissionType =
-      expired
-        ? "automatic"
-        : "manual";
+    const finalSubmissionType = expired
+      ? "automatic"
+      : "manual";
 
     /*
      * -------------------------------------------------------
      * Use answers from request.
      *
-     * If request doesn't contain answers,
-     * use answers already saved in DB.
+     * If no answers are sent, use answers already saved
+     * in the database.
      * -------------------------------------------------------
      */
 
     const finalAnswers =
-      Array.isArray(answers) &&
-      answers.length > 0
+      Array.isArray(answers) && answers.length > 0
         ? answers
-        : buildSubmissionAnswers(
-            attempt.answers
-          );
-
-    /*
-     * Validate question IDs.
-     */
-    const validQuestionIds =
-      new Set(
-        quiz.questions.map(
-          (question) =>
-            question._id.toString()
-        )
-      );
-
-    const sanitizedAnswers =
-      finalAnswers
-        .filter(
-          (answer) =>
-            answer &&
-            answer.questionId &&
-            validQuestionIds.has(
-              answer.questionId.toString()
-            )
-        )
-        .map(
-          (answer) => ({
-            questionId:
-              answer.questionId,
-            selectedAnswer:
-              answer.selectedAnswer ??
-              null,
-          })
-        );
+        : buildSubmissionAnswers(attempt.answers);
 
     /*
      * -------------------------------------------------------
-     * Calculate score.
+     * Create question map
+     *
+     * This allows us to verify that:
+     *
+     * 1. questionId belongs to this quiz
+     * 2. selectedAnswer belongs to that question's options
      * -------------------------------------------------------
      */
 
-    const scoreResult =
-      calculateQuizScore(
-        quiz,
-        sanitizedAnswers
-      );
+    const questionMap = new Map();
 
-    const submittedAt =
-      new Date();
-
-    const startedAt =
-      new Date(attempt.startedAt);
+    for (const question of quiz.questions) {
+      questionMap.set(question._id.toString(), question);
+    }
 
     /*
-     * Calculate time taken.
+     * -------------------------------------------------------
+     * Validate and sanitize answers
+     * -------------------------------------------------------
      */
+
+    const sanitizedAnswers = [];
+
+    for (const answer of finalAnswers) {
+      if (!answer || !answer.questionId) {
+        continue;
+      }
+
+      const question = questionMap.get(
+        answer.questionId.toString()
+      );
+
+      /*
+       * Ignore answers for questions that do not
+       * belong to this quiz.
+       */
+      if (!question) {
+        continue;
+      }
+
+      const selectedAnswer =
+        answer.selectedAnswer ?? null;
+
+      /*
+       * Unanswered question is allowed.
+       */
+      if (
+        selectedAnswer === null ||
+        selectedAnswer === ""
+      ) {
+        sanitizedAnswers.push({
+          questionId: question._id,
+          selectedAnswer: null,
+        });
+
+        continue;
+      }
+
+      /*
+       * -------------------------------------------------------
+       * SECURITY VALIDATION
+       *
+       * Student can only submit an option that actually
+       * exists in the question's options.
+       * -------------------------------------------------------
+       */
+
+      const isValidOption =
+        Array.isArray(question.options) &&
+        question.options.includes(selectedAnswer);
+
+      if (!isValidOption) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid answer for question ${question._id}`,
+        });
+      }
+
+      sanitizedAnswers.push({
+        questionId: question._id,
+        selectedAnswer,
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Calculate score
+     * -------------------------------------------------------
+     */
+
+    const scoreResult = calculateQuizScore(
+      quiz,
+      sanitizedAnswers
+    );
+
+    const submittedAt = new Date();
+
+    const startedAt = new Date(
+      attempt.startedAt
+    );
+
+    /*
+     * -------------------------------------------------------
+     * Calculate time taken
+     * -------------------------------------------------------
+     */
+
     let timeTaken = Math.floor(
       (submittedAt.getTime() -
         startedAt.getTime()) /
@@ -1012,22 +1086,21 @@ export const submitQuiz = async (
      * Don't allow timeTaken to exceed
      * the actual quiz duration.
      */
-    const deadline =
-      getAttemptDeadline(
-        attempt,
-        quiz
-      );
+
+    const deadline = getAttemptDeadline(
+      attempt,
+      quiz
+    );
 
     if (deadline) {
-      const maxTimeTaken =
-        Math.max(
-          0,
-          Math.floor(
-            (deadline.getTime() -
-              startedAt.getTime()) /
-              1000
-          )
-        );
+      const maxTimeTaken = Math.max(
+        0,
+        Math.floor(
+          (deadline.getTime() -
+            startedAt.getTime()) /
+            1000
+        )
+      );
 
       timeTaken = Math.min(
         timeTaken,
@@ -1037,15 +1110,13 @@ export const submitQuiz = async (
 
     /*
      * -------------------------------------------------------
-     * Save final attempt.
+     * Save final attempt
      * -------------------------------------------------------
      */
 
-    attempt.answers =
-      scoreResult.answers;
+    attempt.answers = scoreResult.answers;
 
-    attempt.score =
-      scoreResult.score;
+    attempt.score = scoreResult.score;
 
     attempt.totalPoints =
       scoreResult.totalPoints;
@@ -1053,47 +1124,40 @@ export const submitQuiz = async (
     attempt.percentage =
       scoreResult.percentage;
 
-    attempt.submittedAt =
-      submittedAt;
+    attempt.submittedAt = submittedAt;
 
-    attempt.timeTaken =
-      timeTaken;
+    attempt.timeTaken = timeTaken;
 
     attempt.submissionType =
       finalSubmissionType;
 
-    attempt.status =
-      "submitted";
+    attempt.status = "submitted";
 
     await attempt.save();
 
     /*
      * -------------------------------------------------------
-     * Test results should remain hidden until
-     * instructor shares them.
+     * Test results remain hidden until instructor
+     * shares them.
      *
      * Practice results are returned immediately.
      * -------------------------------------------------------
      */
 
     const isTest =
-      quiz.settings?.quizMode ===
-      "test";
+      quiz.settings?.quizMode === "test";
 
     return res.status(200).json({
       success: true,
 
-      message:
-        "Quiz submitted successfully",
+      message: "Quiz submitted successfully",
 
-      submissionType:
-        finalSubmissionType,
+      submissionType: finalSubmissionType,
 
       result: isTest
         ? null
         : {
-            score:
-              attempt.score,
+            score: attempt.score,
 
             totalPoints:
               attempt.totalPoints,
@@ -1104,6 +1168,8 @@ export const submitQuiz = async (
             timeTaken:
               attempt.timeTaken,
           },
+
+      resultAvailable: !isTest,
     });
   } catch (error) {
     console.error(
@@ -1113,8 +1179,7 @@ export const submitQuiz = async (
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to submit quiz",
+      message: "Failed to submit quiz",
     });
   }
 };

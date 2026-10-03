@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@clerk/react";
+import {
+  BarChart3,
+  CheckCircle2,
+  Clock3,
+  FileQuestion,
+  Loader2,
+} from "lucide-react";
 
 function InstructorResults() {
   const { getToken } = useAuth();
@@ -30,10 +37,20 @@ function InstructorResults() {
         );
       }
 
-      setQuizzes(data.quizzes || []);
+      setQuizzes(
+        Array.isArray(data.quizzes)
+          ? data.quizzes
+          : []
+      );
     } catch (error) {
-      console.error("Fetch instructor results error:", error);
-      setError(error.message || "Failed to load results");
+      console.error(
+        "Fetch instructor results error:",
+        error
+      );
+
+      setError(
+        error.message || "Failed to load results"
+      );
     } finally {
       setLoading(false);
     }
@@ -43,12 +60,51 @@ function InstructorResults() {
     fetchResults();
   }, []);
 
+  const formatDate = (date) => {
+    if (!date) {
+      return "—";
+    }
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "—";
+    }
+
+    return parsedDate.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const getStatusClasses = (status) => {
+    switch (status) {
+      case "published":
+        return "bg-success/10 text-success";
+
+      case "completed":
+        return "bg-brand-indigo/10 text-brand-indigo";
+
+      case "archived":
+        return "bg-error/10 text-error";
+
+      default:
+        return "bg-background-elevated text-text-secondary";
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-text-secondary">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <Loader2
+            size={18}
+            className="animate-spin"
+          />
+
           Loading results...
-        </p>
+        </div>
       </div>
     );
   }
@@ -56,7 +112,10 @@ function InstructorResults() {
   if (error) {
     return (
       <div className="rounded-card border border-error/20 bg-error/5 p-6">
-        <p className="text-sm text-error">{error}</p>
+        <p className="text-sm text-error">
+          {error}
+        </p>
+
         <button
           type="button"
           onClick={fetchResults}
@@ -67,6 +126,17 @@ function InstructorResults() {
       </div>
     );
   }
+
+  /*
+   * Results are meaningful for published/completed quizzes.
+   * Draft quizzes can still exist in /api/quizzes/my,
+   * but they do not have student results yet.
+   */
+  const resultQuizzes = quizzes.filter(
+    (quiz) =>
+      quiz.status === "published" ||
+      quiz.status === "completed"
+  );
 
   return (
     <div className="space-y-8">
@@ -86,18 +156,22 @@ function InstructorResults() {
       </div>
 
       {/* Empty state */}
-      {quizzes.length === 0 ? (
+      {resultQuizzes.length === 0 ? (
         <div className="rounded-card border border-border bg-surface p-10 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand-violet/10 text-xl">
-            📊
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand-violet/10">
+            <BarChart3
+              size={22}
+              className="text-brand-violet"
+            />
           </div>
 
           <h2 className="mt-4 text-lg font-semibold text-text-primary">
-            No quizzes yet
+            No results yet
           </h2>
 
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-text-secondary">
-            Create and publish a quiz to start receiving student results.
+            Publish a quiz and let students complete
+            it to start receiving results.
           </p>
 
           <Link
@@ -109,76 +183,105 @@ function InstructorResults() {
         </div>
       ) : (
         <div className="space-y-4">
-          {quizzes.map((quiz) => (
-            <div
-              key={quiz._id}
-              className="rounded-card border border-border bg-surface p-6 transition hover:border-brand-violet/30"
-            >
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                {/* Quiz information */}
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-lg font-semibold text-text-primary">
-                      {quiz.title}
-                    </h2>
+          {resultQuizzes.map((quiz) => {
+            const isTest =
+              quiz.settings?.quizMode === "test";
 
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        quiz.status === "published"
-                          ? "bg-success/10 text-success"
-                          : quiz.status === "completed"
-                          ? "bg-brand-indigo/10 text-brand-indigo"
-                          : "bg-background-elevated text-text-secondary"
-                      }`}
-                    >
-                      {quiz.status}
-                    </span>
+            const isCompleted =
+              quiz.status === "completed";
 
-                    <span className="rounded-full bg-brand-violet/10 px-2.5 py-1 text-xs font-medium capitalize text-brand-violet">
-                      {quiz.settings?.quizMode || "practice"}
-                    </span>
-                  </div>
+            return (
+              <div
+                key={quiz._id}
+                className="rounded-card border border-border bg-surface p-6 transition hover:border-brand-violet/30"
+              >
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  {/* Quiz information */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-lg font-semibold text-text-primary">
+                        {quiz.title ||
+                          "Untitled Quiz"}
+                      </h2>
 
-                  <p className="mt-2 text-sm text-text-secondary">
-                    {quiz.description || "No description available."}
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap gap-4 text-xs text-text-muted">
-                    <span>
-                      {quiz.questions?.length || 0} questions
-                    </span>
-
-                    <span>
-                      Created{" "}
-                      {quiz.createdAt
-                        ? new Date(
-                            quiz.createdAt
-                          ).toLocaleDateString()
-                        : "—"}
-                    </span>
-
-                    {quiz.settings?.quizMode === "test" && (
-                      <span>
-                        {quiz.resultsShared
-                          ? "Results shared"
-                          : "Results not shared"}
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${getStatusClasses(
+                          quiz.status
+                        )}`}
+                      >
+                        {quiz.status ||
+                          "unknown"}
                       </span>
-                    )}
-                  </div>
-                </div>
 
-                {/* Action */}
-                <div className="shrink-0">
-                  <Link
-                    to={`/instructor/results/${quiz._id}`}
-                    className="inline-flex w-full items-center justify-center rounded-button bg-brand-violet px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 sm:w-auto"
-                  >
-                    View Results
-                  </Link>
+                      <span className="rounded-full bg-brand-violet/10 px-2.5 py-1 text-xs font-medium capitalize text-brand-violet">
+                        {isTest
+                          ? "Test"
+                          : "Practice"}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 line-clamp-2 text-sm text-text-secondary">
+                      {quiz.description ||
+                        "No description available."}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-text-muted">
+                      <span className="flex items-center gap-1.5">
+                        <FileQuestion size={14} />
+
+                        {quiz.questions?.length ||
+                          0}{" "}
+                        questions
+                      </span>
+
+                      <span className="flex items-center gap-1.5">
+                        <Clock3 size={14} />
+
+                        Created{" "}
+                        {formatDate(
+                          quiz.createdAt
+                        )}
+                      </span>
+
+                      {isTest && (
+                        <span
+                          className={
+                            quiz.resultsShared
+                              ? "text-success"
+                              : "text-text-muted"
+                          }
+                        >
+                          {quiz.resultsShared
+                            ? "Results shared"
+                            : "Results not shared"}
+                        </span>
+                      )}
+
+                      {isCompleted && (
+                        <span className="flex items-center gap-1.5 text-success">
+                          <CheckCircle2
+                            size={14}
+                          />
+
+                          Test completed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action */}
+                  <div className="shrink-0">
+                    <Link
+                      to={`/instructor/results/${quiz._id}`}
+                      className="inline-flex w-full items-center justify-center rounded-button bg-brand-violet px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 sm:w-auto"
+                    >
+                      View Results
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

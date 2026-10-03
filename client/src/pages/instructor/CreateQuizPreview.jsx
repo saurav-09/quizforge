@@ -16,7 +16,17 @@ function CreateQuizPreview() {
   const navigate = useNavigate();
   const { getToken } = useAuth();
 
-  const quizData = location.state;
+const quizData = location.state || {};
+
+const searchParams = new URLSearchParams(
+  location.search
+);
+
+const quizId =
+  searchParams.get("quizId") ||
+  quizData.quizId;
+
+const isEditMode = Boolean(quizId);
 
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
@@ -34,71 +44,234 @@ function CreateQuizPreview() {
     0
   );
 
-  const publishQuiz = async () => {
-    try {
-      setPublishing(true);
-      setError("");
+ const saveQuiz = async () => {
+  try {
+    setPublishing(true);
+    setError("");
 
-      const token = await getToken();
+    const token = await getToken();
 
-      const payload = {
-        title: quizData.title.trim(),
-        description: quizData.description?.trim() || "",
-        questions: quizData.questions.map((question) => ({
-          question: question.question.trim(),
-          options: question.options.map((option) => option.trim()),
-          correctAnswer: question.correctAnswer,
-          explanation: question.explanation?.trim() || "",
-          points: Number(question.points) || 1,
-        })),
-        settings: {
-          timeLimit: Number(quizData.settings.timeLimit),
-          attemptsAllowed: Number(
-            quizData.settings.attemptsAllowed
-          ),
-          shuffleQuestions: quizData.settings.shuffleQuestions,
-          showResults:
-            quizData.quizMode === "practice"
-              ? quizData.settings.showResults
-              : false,
-          quizMode: quizData.quizMode,
-        },
-        startTime:
-          quizData.quizMode === "test"
-            ? quizData.startTime
-            : null,
-      };
+    if (
+      !quizData.title?.trim() ||
+      !Array.isArray(quizData.questions) ||
+      quizData.questions.length === 0
+    ) {
+      throw new Error(
+        "Quiz title and at least one question are required."
+      );
+    }
 
-      const response = await fetch("/api/quizzes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+    const timeLimit =
+      Number(quizData.settings?.timeLimit) || 0;
 
-      const data = await response.json();
+    const attemptsAllowed =
+      Number(
+        quizData.settings?.attemptsAllowed
+      ) || 0;
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to create quiz");
+    if (timeLimit < 1) {
+      throw new Error(
+        "Time limit must be at least 1 minute."
+      );
+    }
+
+    if (attemptsAllowed < 1) {
+      throw new Error(
+        "Attempts allowed must be at least 1."
+      );
+    }
+
+    let startTime = null;
+    let endTime = null;
+
+    if (quizData.quizMode === "test") {
+      if (!quizData.startTime) {
+        throw new Error(
+          "Test starting time is required."
+        );
       }
 
-      navigate("/instructor/quizzes");
-    } catch (error) {
-      console.error("Create quiz error:", error);
-      setError(error.message);
-    } finally {
-      setPublishing(false);
+      startTime = new Date(
+        quizData.startTime
+      );
+
+      if (Number.isNaN(startTime.getTime())) {
+        throw new Error(
+          "Invalid test starting time."
+        );
+      }
+
+      endTime = new Date(
+        startTime.getTime() +
+          timeLimit * 60 * 1000
+      );
     }
-  };
+
+    const payload = {
+      title: quizData.title.trim(),
+
+      description:
+        quizData.description?.trim() || "",
+
+      questions: quizData.questions.map(
+        (question) => ({
+          ...(question._id && {
+            _id: question._id,
+          }),
+
+          question:
+            question.question.trim(),
+
+          options: question.options.map(
+            (option) => option.trim()
+          ),
+
+          correctAnswer:
+            question.correctAnswer,
+
+          explanation:
+            question.explanation?.trim() || "",
+
+          points:
+            Number(question.points) || 1,
+        })
+      ),
+
+      settings: {
+        timeLimit,
+        attemptsAllowed,
+
+        shuffleQuestions:
+          Boolean(
+            quizData.settings
+              ?.shuffleQuestions
+          ),
+
+        showResults:
+          quizData.quizMode === "practice"
+            ? Boolean(
+                quizData.settings
+                  ?.showResults
+              )
+            : false,
+
+        quizMode: quizData.quizMode,
+      },
+
+      startTime,
+      endTime,
+    };
+
+    // Create new quiz
+    if (!isEditMode) {
+      const createResponse = await fetch(
+        "/api/quizzes",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const createData =
+        await createResponse.json();
+
+      if (!createResponse.ok) {
+        throw new Error(
+          createData.message ||
+            "Failed to create quiz"
+        );
+      }
+
+      const createdQuiz =
+        createData.quiz;
+
+      if (!createdQuiz?._id) {
+        throw new Error(
+          "Quiz was created but its ID was not returned."
+        );
+      }
+
+      // New quizzes are created as drafts,
+      // so publish them after creation.
+      const publishResponse =
+        await fetch(
+          `/api/quizzes/${createdQuiz._id}/publish`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+      const publishData =
+        await publishResponse.json();
+
+      if (!publishResponse.ok) {
+        throw new Error(
+          publishData.message ||
+            "Quiz was created but could not be published."
+        );
+      }
+    } else {
+      // Update existing quiz
+      const updateResponse =
+        await fetch(
+          `/api/quizzes/${quizId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+      const updateData =
+        await updateResponse.json();
+
+      if (!updateResponse.ok) {
+        throw new Error(
+          updateData.message ||
+            "Failed to update quiz"
+        );
+      }
+    }
+
+    navigate("/instructor/quizzes");
+  } catch (error) {
+    console.error(
+      isEditMode
+        ? "Update quiz error:"
+        : "Create and publish quiz error:",
+      error
+    );
+
+    setError(
+      error.message ||
+        (isEditMode
+          ? "Failed to update quiz"
+          : "Failed to create and publish quiz")
+    );
+  } finally {
+    setPublishing(false);
+  }
+};
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <Link
-          to="/instructor/quizzes/create/settings"
-          state={quizData}
+          to={`/instructor/quizzes/create/settings${
+  quizId ? `?quizId=${quizId}` : ""
+}`}
+state={quizData}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
         >
           <ArrowLeft size={17} />
@@ -106,21 +279,25 @@ function CreateQuizPreview() {
 
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-text-primary">
-            Preview Quiz
+            {isEditMode ? "Preview Updated Quiz" : "Preview Quiz"}
           </h2>
 
           <p className="mt-1 text-sm text-text-secondary">
-            Review everything before publishing.
+            {isEditMode
+              ? "Review your changes before updating the quiz."
+              : "Review everything before publishing."}
           </p>
         </div>
       </div>
 
+      {/* Error */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       )}
 
+      {/* Quiz Summary */}
       <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -212,12 +389,15 @@ function CreateQuizPreview() {
             </p>
 
             <p className="mt-1 text-sm font-medium text-text-primary">
-              {new Date(quizData.startTime).toLocaleString()}
+              {new Date(
+                quizData.startTime
+              ).toLocaleString()}
             </p>
           </div>
         )}
       </div>
 
+      {/* Questions */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-text-primary">
@@ -231,7 +411,7 @@ function CreateQuizPreview() {
 
         {quizData.questions.map((question, index) => (
           <div
-            key={index}
+            key={question._id || index}
             className="rounded-xl border border-border bg-white p-4 sm:p-5"
           >
             <div className="flex items-start gap-3">
@@ -245,27 +425,29 @@ function CreateQuizPreview() {
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {question.options.map((option, optionIndex) => (
-                    <div
-                      key={optionIndex}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                        option === question.correctAnswer
-                          ? "border-[#8B5CF6]/30 bg-[#8B5CF6]/5 text-text-primary"
-                          : "border-border text-text-secondary"
-                      }`}
-                    >
-                      {option === question.correctAnswer ? (
-                        <Check
-                          size={14}
-                          className="shrink-0 text-[#8B5CF6]"
-                        />
-                      ) : (
-                        <span className="w-3.5 shrink-0" />
-                      )}
+                  {question.options.map(
+                    (option, optionIndex) => (
+                      <div
+                        key={optionIndex}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                          option === question.correctAnswer
+                            ? "border-[#8B5CF6]/30 bg-[#8B5CF6]/5 text-text-primary"
+                            : "border-border text-text-secondary"
+                        }`}
+                      >
+                        {option === question.correctAnswer ? (
+                          <Check
+                            size={14}
+                            className="shrink-0 text-[#8B5CF6]"
+                          />
+                        ) : (
+                          <span className="w-3.5 shrink-0" />
+                        )}
 
-                      <span>{option}</span>
-                    </div>
-                  ))}
+                        <span>{option}</span>
+                      </div>
+                    )
+                  )}
                 </div>
 
                 {question.explanation && (
@@ -282,10 +464,13 @@ function CreateQuizPreview() {
         ))}
       </div>
 
+      {/* Actions */}
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         <Link
-          to="/instructor/quizzes/create/settings"
-          state={quizData}
+          to={`/instructor/quizzes/create/settings${
+  quizId ? `?quizId=${quizId}` : ""
+}`}
+state={quizData}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
         >
           <ArrowLeft size={15} />
@@ -294,19 +479,26 @@ function CreateQuizPreview() {
 
         <button
           type="button"
-          onClick={publishQuiz}
+          onClick={saveQuiz}
           disabled={publishing}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#8B5CF6] px-5 text-sm font-medium text-white transition-colors hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {publishing ? (
             <>
-              <Loader2 size={16} className="animate-spin" />
-              Publishing...
+              <Loader2
+                size={16}
+                className="animate-spin"
+              />
+              {isEditMode
+                ? "Updating..."
+                : "Publishing..."}
             </>
           ) : (
             <>
               <Check size={16} />
-              Publish Quiz
+              {isEditMode
+                ? "Update Quiz"
+                : "Publish Quiz"}
             </>
           )}
         </button>

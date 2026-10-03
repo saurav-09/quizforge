@@ -41,17 +41,19 @@ function StudentQuizResult() {
 
         if (!response.ok) {
           throw new Error(
-            data.message ||
-              "Failed to load result"
+            data.message || "Failed to load result"
           );
         }
 
-        setResultAvailable(
-          data.resultAvailable !== false
-        );
+        const available =
+          data.resultAvailable !== false;
 
-        if (data.resultAvailable !== false) {
-          setResult(data.result);
+        setResultAvailable(available);
+
+        if (available) {
+          setResult(data.result || null);
+        } else {
+          setResult(null);
         }
       } catch (error) {
         console.error(
@@ -60,8 +62,7 @@ function StudentQuizResult() {
         );
 
         setError(
-          error.message ||
-            "Failed to load result"
+          error.message || "Failed to load result"
         );
       } finally {
         setLoading(false);
@@ -81,7 +82,7 @@ function StudentQuizResult() {
 
     const totalSeconds = Math.max(
       0,
-      seconds
+      Number(seconds) || 0
     );
 
     const hours = Math.floor(
@@ -204,34 +205,68 @@ function StudentQuizResult() {
   }
 
   if (!result) {
-    return null;
+    return (
+      <div className="mx-auto max-w-2xl py-16 text-center">
+        <div className="rounded-2xl border border-border bg-white p-8 shadow-sm">
+          <h1 className="text-xl font-semibold text-text-primary">
+            Result not available
+          </h1>
+
+          <p className="mt-2 text-sm text-text-secondary">
+            The result data could not be found.
+          </p>
+
+          <Link
+            to="/student/results"
+            className="mt-6 inline-flex rounded-[10px] bg-brand-violet px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Back to Results
+          </Link>
+        </div>
+      </div>
+    );
   }
 
+  /*
+   * -------------------------------------------------------
+   * Result data
+   * -------------------------------------------------------
+   */
+
   const percentage = Math.round(
-    result.percentage || 0
+    Number(result.percentage) || 0
   );
 
+  const questions = Array.isArray(
+    result.questions
+  )
+    ? result.questions
+    : [];
+
+  /*
+   * Backend returns quizMode directly inside
+   * result.quiz.
+   */
+  const isTest =
+    result.quiz?.quizMode === "test";
+
   const correctCount =
-    result.questions?.filter(
+    questions.filter(
       (question) => question.isCorrect
-    ).length || 0;
+    ).length;
 
   const incorrectCount =
-    result.questions?.filter(
+    questions.filter(
       (question) =>
         !question.isCorrect &&
         question.selectedAnswer
-    ).length || 0;
+    ).length;
 
   const unansweredCount =
-    result.questions?.filter(
+    questions.filter(
       (question) =>
         !question.selectedAnswer
-    ).length || 0;
-
-  const isTest =
-    result.quiz?.settings?.quizMode ===
-    "test";
+    ).length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12">
@@ -416,14 +451,17 @@ function StudentQuizResult() {
         </div>
 
         <div className="divide-y divide-border">
-          {result.questions?.map(
+          {questions.map(
             (question, index) => {
               const unanswered =
                 !question.selectedAnswer;
 
               return (
                 <div
-                  key={question.questionId}
+                  key={
+                    question.questionId ||
+                    index
+                  }
                   className="p-6 sm:p-8"
                 >
                   {/* Question header */}
@@ -459,8 +497,10 @@ function StudentQuizResult() {
                               : "bg-red-50 text-red-600"
                           }`}
                         >
-                          {question.pointsEarned} /{" "}
-                          {question.points} points
+                          {question.pointsEarned || 0}{" "}
+                          /{" "}
+                          {question.points || 0}{" "}
+                          points
                         </span>
                       </div>
 
@@ -473,7 +513,10 @@ function StudentQuizResult() {
                   {/* Options */}
                   <div className="mt-5 space-y-2">
                     {question.options?.map(
-                      (option, optionIndex) => {
+                      (
+                        option,
+                        optionIndex
+                      ) => {
                         const isSelected =
                           question.selectedAnswer ===
                           option;
@@ -485,9 +528,7 @@ function StudentQuizResult() {
                         let optionClass =
                           "border-border bg-white text-text-secondary";
 
-                        if (
-                          isCorrect
-                        ) {
+                        if (isCorrect) {
                           optionClass =
                             "border-emerald-200 bg-emerald-50 text-emerald-700";
                         } else if (
