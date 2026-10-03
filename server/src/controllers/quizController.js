@@ -362,6 +362,13 @@ export const getQuiz = async (req, res) => {
       }
     }
 
+    if (!["student", "instructor"].includes(req.user.role)) {
+  return res.status(403).json({
+    success: false,
+    message: "Invalid user role",
+  });
+}
+
     return res.status(200).json({
       success: true,
       quiz,
@@ -390,12 +397,15 @@ export const updateQuiz = async (req, res) => {
       });
     }
 
-    if (quiz.status === "archived") {
-      return res.status(400).json({
-        success: false,
-        message: "Archived quiz cannot be updated",
-      });
-    }
+   if (
+  quiz.status === "archived" ||
+  quiz.status === "completed"
+) {
+  return res.status(400).json({
+    success: false,
+    message: "Completed or archived quiz cannot be updated",
+  });
+}
 
     const {
       title,
@@ -676,6 +686,18 @@ export const deleteQuiz = async (req, res) => {
         message: "Quiz not found",
       });
     }
+
+    const attemptCount = await QuizAttempt.countDocuments({
+  quiz: quiz._id,
+});
+
+if (attemptCount > 0) {
+  return res.status(400).json({
+    success: false,
+    message:
+      "Quiz cannot be deleted because students have already attempted it",
+  });
+}
 
     await quiz.deleteOne();
 

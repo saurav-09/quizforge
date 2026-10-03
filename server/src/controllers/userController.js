@@ -75,6 +75,14 @@ export const updateUserRole = async (req, res) => {
       });
     }
 
+    // Role can only be selected once during onboarding.
+    if (req.user.role !== "student") {
+      return res.status(400).json({
+        success: false,
+        message: "User role has already been selected",
+      });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
       {

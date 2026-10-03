@@ -616,14 +616,26 @@ export const getQuizAttempt = async (req, res) => {
 
     let result = null;
 
-    if (attempt.status === "submitted") {
-      result = {
-        score: attempt.score,
-        totalPoints: attempt.totalPoints,
-        percentage: attempt.percentage,
-        timeTaken: attempt.timeTaken,
-      };
-    }
+   
+
+const isTest =
+  quiz.settings?.quizMode === "test";
+
+const resultAvailable =
+  !isTest ||
+  quiz.resultsShared === true;
+
+if (
+  attempt.status === "submitted" &&
+  resultAvailable
+) {
+  result = {
+    score: attempt.score,
+    totalPoints: attempt.totalPoints,
+    percentage: attempt.percentage,
+    timeTaken: attempt.timeTaken,
+  };
+}
 
     /*
      * -------------------------------------------------------
@@ -634,28 +646,27 @@ export const getQuizAttempt = async (req, res) => {
      * explanations from being exposed.
      */
 
-    return res.status(200).json({
-      success: true,
+    const safeAnswers =
+  attempt.status === "submitted" && !resultAvailable
+    ? attempt.answers.map((answer) => ({
+        questionId: answer.questionId,
+        selectedAnswer: answer.selectedAnswer,
+      }))
+    : attempt.answers;
 
-      attemptId: attempt._id,
-
-      status: attempt.status,
-
-      startedAt: attempt.startedAt,
-
-      submittedAt: attempt.submittedAt,
-
-      deadline,
-
-      submissionType:
-        attempt.submissionType,
-
-      answers: attempt.answers,
-
-      result,
-
-      quiz: buildSafeQuiz(quiz),
-    });
+   return res.status(200).json({
+  success: true,
+  attemptId: attempt._id,
+  status: attempt.status,
+  startedAt: attempt.startedAt,
+  submittedAt: attempt.submittedAt,
+  deadline,
+  submissionType: attempt.submissionType,
+  answers: safeAnswers,
+  result,
+  resultAvailable,
+  quiz: buildSafeQuiz(quiz),
+});
   } catch (error) {
     console.error(
       "Get quiz attempt error:",
@@ -962,10 +973,11 @@ export const submitQuiz = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    const finalAnswers =
-      Array.isArray(answers) && answers.length > 0
-        ? answers
-        : buildSubmissionAnswers(attempt.answers);
+    const finalAnswers = expired
+  ? buildSubmissionAnswers(attempt.answers)
+  : Array.isArray(answers) && answers.length > 0
+    ? answers
+    : buildSubmissionAnswers(attempt.answers);
 
     /*
      * -------------------------------------------------------
