@@ -65,68 +65,89 @@ function StudentQuizDetails() {
   }, [quizId, getToken]);
 
   const startQuiz = async () => {
-    if (!quizId || starting) {
-      return;
-    }
+  if (!quizId || starting) {
+    return;
+  }
 
-    try {
-      setStarting(true);
-      setError("");
+  try {
+    setStarting(true);
+    setError("");
 
-      const token = await getToken();
+    const token = await getToken();
 
-      const response = await fetch(
-        `/api/quiz-attempts/${quizId}/start`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+    const body = {};
 
-      const data = await response.json();
+    /*
+     * Test quizzes require the access code
+     * received from the Join Quiz flow.
+     *
+     * Practice quizzes do not need a code.
+     */
+    if (quiz?.settings?.quizMode === "test") {
+      const accessCode =
+        sessionStorage.getItem(
+          `quiz-access-code-${quizId}`
+        );
 
-      if (!response.ok) {
+      if (!accessCode) {
         throw new Error(
-          data.message || "Failed to start quiz"
+          "Please join this test using the access code"
         );
       }
 
-      if (!data.attemptId) {
-        throw new Error(
-          "Quiz attempt could not be created."
-        );
-      }
-
-      /*
-       * Backend can either create a new attempt
-       * or resume an existing attempt.
-       */
-      navigate(
-        `/student/quizzes/${quizId}/attempt/${data.attemptId}`,
-        {
-          state: {
-            quiz: data.quiz,
-            startedAt: data.startedAt,
-            deadline: data.deadline,
-            answers: data.answers || {},
-          },
-        }
-      );
-    } catch (error) {
-      console.error(
-        "Start quiz error:",
-        error
-      );
-
-      setError(
-        error.message || "Failed to start quiz"
-      );
-    } finally {
-      setStarting(false);
+      body.accessCode = accessCode;
     }
-  };
+
+    const response = await fetch(
+      `/api/quiz-attempts/${quizId}/start`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to start quiz"
+      );
+    }
+
+    if (!data.attemptId) {
+      throw new Error(
+        "Quiz attempt could not be created."
+      );
+    }
+
+    navigate(
+      `/student/quizzes/${quizId}/attempt/${data.attemptId}`,
+      {
+        state: {
+          quiz: data.quiz,
+          startedAt: data.startedAt,
+          deadline: data.deadline,
+          answers: data.answers || {},
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Start quiz error:",
+      error
+    );
+
+    setError(
+      error.message || "Failed to start quiz"
+    );
+  } finally {
+    setStarting(false);
+  }
+};
 
   const formatTime = (minutes) => {
     const safeMinutes = Number(minutes);

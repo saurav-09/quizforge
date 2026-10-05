@@ -17,6 +17,7 @@ createRoot(document.getElementById("root")).render(
     <ClerkProvider
       publishableKey={publishableKey}
       signUpForceRedirectUrl="/onboarding"
+      signUpFallbackRedirectUrl="/onboarding"
     >
       <BrowserRouter>
         <AuthProvider>

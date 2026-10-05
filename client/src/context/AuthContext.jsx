@@ -27,12 +27,18 @@ export function AuthProvider({ children }) {
         },
       });
 
+      if (response.status === 404) {
+        // Clerk user exists, but QuizForge user
+        // has not been created yet.
+        setUser(null);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error("Failed to fetch current user");
       }
 
       const data = await response.json();
-
       setUser(data.user);
     } catch (error) {
       console.error("Fetch current user error:", error);

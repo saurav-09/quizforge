@@ -147,14 +147,6 @@ const isEditMode = Boolean(quizId);
               ?.shuffleQuestions
           ),
 
-        showResults:
-          quizData.quizMode === "practice"
-            ? Boolean(
-                quizData.settings
-                  ?.showResults
-              )
-            : false,
-
         quizMode: quizData.quizMode,
       },
 

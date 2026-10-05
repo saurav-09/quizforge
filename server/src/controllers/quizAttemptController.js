@@ -296,6 +296,7 @@ const autoSubmitAttempt = async (
 export const startQuiz = async (req, res) => {
   try {
     const { quizId } = req.params;
+    const { accessCode } = req.body;
     const studentId = req.user._id;
 
     /*
@@ -324,6 +325,34 @@ export const startQuiz = async (req, res) => {
         success: false,
         message: "This quiz is not available",
       });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * Test access code
+     * -------------------------------------------------------
+     *
+     * Practice quizzes do not require a code.
+     * Test quizzes require the correct access code.
+     */
+
+    if (quiz.settings?.quizMode === "test") {
+      if (!accessCode?.trim()) {
+        return res.status(403).json({
+          success: false,
+          message: "Access code is required to start this test",
+        });
+      }
+
+      if (
+        accessCode.trim().toUpperCase() !==
+        quiz.accessCode?.toUpperCase()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Invalid access code",
+        });
+      }
     }
 
     const now = new Date();
@@ -387,12 +416,6 @@ export const startQuiz = async (req, res) => {
         quiz
       );
 
-      /*
-       * The expired attempt is now submitted.
-       * Continue below to check whether another
-       * attempt is allowed.
-       */
-
       attempt = null;
     }
 
@@ -440,10 +463,6 @@ export const startQuiz = async (req, res) => {
      * -------------------------------------------------------
      * Check attempt limit
      * -------------------------------------------------------
-     *
-     * IMPORTANT:
-     * Quiz settings use attemptsAllowed,
-     * not attempts.
      */
 
     const maxAttempts =

@@ -25,6 +25,7 @@ import StudentQuizDetails from "../pages/student/StudentQuizDetails";
 import StudentQuizAttempt from "../pages/student/StudentQuizAttempt";
 import StudentQuizResult from "../pages/student/StudentQuizResult";
 import StudentResults from "../pages/student/StudentResults";
+import StudentJoinQuiz from "../pages/student/StudentJoinQuiz";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -100,6 +101,11 @@ function AppRoutes() {
     path="quizzes/:quizId/attempt/:attemptId"
     element={<StudentQuizAttempt />}
   />
+
+  <Route
+  path="join"
+  element={<StudentJoinQuiz />}
+/>
 
   <Route
     path="results"

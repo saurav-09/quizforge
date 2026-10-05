@@ -82,11 +82,6 @@ const quizSchema = new mongoose.Schema(
         default: false,
       },
 
-      showResults: {
-        type: Boolean,
-        default: true,
-      },
-
       quizMode: {
         type: String,
         enum: ["practice", "test"],

@@ -1,4 +1,10 @@
-import { Menu, X } from "lucide-react";
+import {
+  ChevronDown,
+  LogOut,
+  Menu,
+  User,
+  X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useClerk } from "@clerk/react";
@@ -7,9 +13,10 @@ import { useAuthContext } from "../../context/AuthContext";
 
 function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const { signOut } = useClerk();
-  const { isAuthenticated, role } = useAuthContext();
+  const { isAuthenticated, role, user } = useAuthContext();
 
   const links = [
     { label: "Features", href: "#features" },
@@ -19,10 +26,16 @@ function Navbar() {
   ];
 
   const dashboardPath =
-    role === "instructor" ? "/instructor" : "/student";
+    !role
+      ? "/onboarding"
+      : role === "instructor"
+        ? "/instructor"
+        : "/student";
 
   const handleLogout = async () => {
+    setProfileOpen(false);
     setMobileOpen(false);
+
     await signOut({ redirectUrl: "/" });
   };
 
@@ -74,13 +87,89 @@ function Navbar() {
                 <Button size="sm">Dashboard</Button>
               </Link>
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-[10px] px-3.5 py-2 text-sm font-medium text-[#94A3B8] transition-colors hover:bg-white/[0.04] hover:text-[#F8FAFC]"
-              >
-                Logout
-              </button>
+              {/* Profile Menu */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((open) => !open)}
+                  className="flex items-center gap-2 rounded-[10px] px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
+                  aria-label="Open profile menu"
+                  aria-expanded={profileOpen}
+                >
+                  {user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name || "User"}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8B5CF6] text-xs font-medium text-white">
+                      {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                  )}
+
+                  <div className="hidden text-left lg:block">
+                    <p className="max-w-[100px] truncate text-xs font-medium text-[#F8FAFC]">
+                      {user?.name || "User"}
+                    </p>
+
+                    <p className="text-[10px] capitalize text-[#94A3B8]">
+                      {role || "user"}
+                    </p>
+                  </div>
+
+                  <ChevronDown
+                    size={15}
+                    className={`text-[#94A3B8] transition-transform ${
+                      profileOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {profileOpen && (
+                  <div className="absolute right-0 top-12 z-50 w-52 rounded-xl border border-white/[0.08] bg-[#161328] p-1.5 shadow-xl">
+                    <div className="border-b border-white/[0.08] px-3 py-2.5">
+                      <p className="truncate text-sm font-medium text-[#F8FAFC]">
+                        {user?.name || "User"}
+                      </p>
+
+                      <p className="truncate text-xs capitalize text-[#94A3B8]">
+                        {role || "user"}
+                      </p>
+                    </div>
+
+                    <div className="py-1">
+                      <Link
+                        to="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#94A3B8] transition-colors hover:bg-white/[0.05] hover:text-[#F8FAFC]"
+                      >
+                        <User size={16} />
+                        Profile
+                      </Link>
+
+                      <Link
+                        to={dashboardPath}
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#94A3B8] transition-colors hover:bg-white/[0.05] hover:text-[#F8FAFC]"
+                      >
+                        Dashboard
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-white/[0.08] pt-1">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#94A3B8] transition-colors hover:bg-white/[0.05] hover:text-[#F8FAFC]"
+                      >
+                        <LogOut size={16} />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -146,11 +235,21 @@ function Navbar() {
                   </Button>
                 </Link>
 
+                <Link
+                  to="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
+                >
+                  <User size={16} />
+                  Profile
+                </Link>
+
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="block w-full rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
+                  className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-[#94A3B8] hover:bg-white/[0.04] hover:text-[#F8FAFC]"
                 >
+                  <LogOut size={16} />
                   Logout
                 </button>
               </div>

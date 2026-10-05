@@ -12,6 +12,7 @@ import {
   publishQuiz,
   getAvailableQuizzes,
   getQuizAttemptResultForInstructor,
+  joinQuiz,
 } from "../controllers/quizController.js";
 
 import {
@@ -47,6 +48,13 @@ router.get(
   protect,
   requireRole("instructor"),
   getQuizAttemptResultForInstructor
+);
+
+router.post(
+  "/join",
+  protect,
+  requireRole("student"),
+  joinQuiz
 );
 
 router.get(

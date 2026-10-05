@@ -29,7 +29,6 @@ const quizId =
     timeLimit: 30,
     attemptsAllowed: 1,
     shuffleQuestions: false,
-    showResults: true,
   });
 
   const [startTime, setStartTime] = useState("");
@@ -72,10 +71,6 @@ const quizId =
             existingSettings.attemptsAllowed || 1,
           shuffleQuestions:
             existingSettings.shuffleQuestions || false,
-          showResults:
-            existingSettings.showResults !== undefined
-              ? existingSettings.showResults
-              : true,
         });
 
         if (quiz.startTime) {
@@ -303,27 +298,7 @@ const handleContinue = () => {
             </div>
           </label>
 
-          {quizData.quizMode === "practice" && (
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                name="showResults"
-                type="checkbox"
-                checked={settings.showResults}
-                onChange={handleChange}
-                className="mt-0.5 h-4 w-4 accent-[#8B5CF6]"
-              />
-
-              <div>
-                <p className="text-sm font-medium text-text-primary">
-                  Show results after submission
-                </p>
-
-                <p className="mt-1 text-xs text-text-secondary">
-                  Students can see their score and correct answers.
-                </p>
-              </div>
-            </label>
-          )}
+         
         </div>
       </div>
 

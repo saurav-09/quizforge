@@ -1,6 +1,21 @@
 import Quiz from "../models/Quiz.js";
 import QuizAttempt from "../models/QuizAttempt.js";
 import { sendQuizResultEmail } from "../utils/emailService.js";
+import crypto from "crypto";
+
+const generateAccessCode = () => {
+  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  let code = "";
+
+  for (let i = 0; i < 6; i++) {
+    code += characters.charAt(
+      Math.floor(Math.random() * characters.length)
+    );
+  }
+
+  return code;
+};
 
 export const createQuiz = async (req, res) => {
   try {
@@ -51,9 +66,7 @@ export const createQuiz = async (req, res) => {
       settings?.quizMode || "practice";
 
     if (
-      !["practice", "test"].includes(
-        quizMode
-      )
+      !["practice", "test"].includes(quizMode)
     ) {
       return res.status(400).json({
         success: false,
@@ -87,14 +100,10 @@ export const createQuiz = async (req, res) => {
      */
 
     const attemptsAllowed =
-      Number(
-        settings?.attemptsAllowed
-      );
+      Number(settings?.attemptsAllowed);
 
     if (
-      !Number.isInteger(
-        attemptsAllowed
-      ) ||
+      !Number.isInteger(attemptsAllowed) ||
       attemptsAllowed < 1
     ) {
       return res.status(400).json({
@@ -215,58 +224,80 @@ export const createQuiz = async (req, res) => {
 
     /*
      * -------------------------------------------------------
+     * Generate access code for test quizzes
+     * -------------------------------------------------------
+     */
+
+    let accessCode;
+
+    if (quizMode === "test") {
+      accessCode = generateAccessCode();
+    }
+
+    /*
+     * -------------------------------------------------------
      * Create quiz
      * -------------------------------------------------------
      */
 
     const quiz = await Quiz.create({
-      title: title.trim(),
+  title: title.trim(),
 
-      description:
-        description?.trim() || "",
+  description:
+    description?.trim() || "",
 
-      questions: questions.map(
-        (question) => ({
-          ...question,
-          question:
-            question.question.trim(),
-          options:
-            question.options.map(
-              (option) =>
-                String(option).trim()
-            ),
-          correctAnswer:
-            question.correctAnswer,
-          explanation:
-            question.explanation?.trim() ||
-            "",
-          points:
-            Number(question.points) || 1,
-        })
+  questions: questions.map(
+    (question) => ({
+      ...question,
+
+      question:
+        question.question.trim(),
+
+      options:
+        question.options.map(
+          (option) =>
+            String(option).trim()
+        ),
+
+      correctAnswer:
+        question.correctAnswer,
+
+      explanation:
+        question.explanation?.trim() ||
+        "",
+
+      points:
+        Number(question.points) || 1,
+    })
+  ),
+
+  settings: {
+    timeLimit,
+    attemptsAllowed,
+
+    shuffleQuestions:
+      Boolean(
+        settings?.shuffleQuestions
       ),
 
-      settings: {
-        timeLimit,
-        attemptsAllowed,
-        shuffleQuestions:
-          Boolean(
-            settings?.shuffleQuestions
-          ),
-        showResults:
-          quizMode === "practice"
-            ? Boolean(
-                settings?.showResults
-              )
-            : false,
-        quizMode,
-      },
+    quizMode,
+  },
 
-      startTime: quizStartTime,
+  startTime: quizStartTime,
+  endTime: quizEndTime,
 
-      endTime: quizEndTime,
+  ...(quizMode === "test" && {
+    accessCode,
+  }),
 
-      creator: req.user._id,
-    });
+  creator: req.user._id,
+});
+
+    /*
+     * -------------------------------------------------------
+     * Response
+     * -------------------------------------------------------
+     */
 
     return res.status(201).json({
       success: true,
@@ -316,12 +347,28 @@ export const getQuiz = async (req, res) => {
 
     /*
      * -------------------------------------------------------
+     * VALIDATE USER ROLE
+     * -------------------------------------------------------
+     */
+
+    if (!["student", "instructor"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid user role",
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
      * STUDENT ACCESS
      * -------------------------------------------------------
      *
-     * Students can only access published quizzes.
-     * They should never receive correct answers or
-     * explanations.
+     * Practice quizzes:
+     * - Published quizzes can be accessed normally.
+     *
+     * Test quizzes:
+     * - Must be accessed through the join code.
+     * - Direct quiz ID access is blocked.
      */
 
     if (req.user.role === "student") {
@@ -329,6 +376,13 @@ export const getQuiz = async (req, res) => {
         return res.status(403).json({
           success: false,
           message: "This quiz is not available",
+        });
+      }
+
+      if (quiz.settings?.quizMode === "test") {
+        return res.status(403).json({
+          success: false,
+          message: "Please join this test using the access code",
         });
       }
 
@@ -361,13 +415,6 @@ export const getQuiz = async (req, res) => {
         });
       }
     }
-
-    if (!["student", "instructor"].includes(req.user.role)) {
-  return res.status(403).json({
-    success: false,
-    message: "Invalid user role",
-  });
-}
 
     return res.status(200).json({
       success: true,
@@ -642,12 +689,6 @@ export const updateQuiz = async (req, res) => {
         Boolean(
           settings?.shuffleQuestions
         ),
-      showResults:
-        quizMode === "practice"
-          ? Boolean(
-              settings?.showResults
-            )
-          : false,
       quizMode,
     };
 
@@ -1227,44 +1268,19 @@ export const shareQuizResults = async (req, res) => {
 
 export const getAvailableQuizzes = async (req, res) => {
   try {
-    const now = new Date();
-
     const quizzes = await Quiz.find({
       status: "published",
-      $or: [
-        {
-          "settings.quizMode": "practice",
-        },
-        {
-          "settings.quizMode": "test",
-          endTime: {
-            $gt: now,
-          },
-        },
-      ],
+      "settings.quizMode": "practice",
     })
       .select(
-        "title description questions settings startTime endTime status"
+        "title description questions settings createdAt creator"
       )
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const safeQuizzes = quizzes.map((quiz) => ({
-      ...quiz,
-
-      questions: quiz.questions.map(
-        (question) => ({
-          _id: question._id,
-          question: question.question,
-          options: question.options,
-          points: question.points,
-        })
-      ),
-    }));
+      .populate("creator", "name")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
-      quizzes: safeQuizzes,
+      quizzes,
     });
   } catch (error) {
     console.error(
@@ -1274,7 +1290,49 @@ export const getAvailableQuizzes = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to fetch available quizzes",
+    });
+  }
+};
+
+export const joinQuiz = async (req, res) => {
+  try {
+    const { accessCode } = req.body;
+
+    if (!accessCode?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Access code is required",
+      });
+    }
+
+    const quiz = await Quiz.findOne({
+      accessCode: accessCode.trim().toUpperCase(),
+      status: "published",
+      "settings.quizMode": "test",
+    })
+      .select(
+        "title description questions settings startTime endTime creator"
+      )
+      .populate("creator", "name");
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid or unavailable quiz code",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      quiz,
+    });
+  } catch (error) {
+    console.error("Join quiz error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to join quiz",
     });
   }
 };

@@ -9,7 +9,11 @@ function DashboardLayout({ role = "instructor" }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <DashboardHeader
-          title={role === "instructor" ? "Instructor Dashboard" : "Student Dashboard"}
+          title={
+            role === "instructor"
+              ? "Instructor Dashboard"
+              : "Student Dashboard"
+          }
         />
 
         <main className="flex-1 bg-white p-4 sm:p-6">
