@@ -916,6 +916,10 @@ export const getQuizResults = async (req, res) => {
     }));
 
     const totalAttempts = results.length;
+    const activeParticipants = await QuizAttempt.countDocuments({
+      quiz: quiz._id,
+      status: "in-progress",
+    });
 
     const averagePercentage =
       totalAttempts > 0
@@ -958,6 +962,7 @@ export const getQuizResults = async (req, res) => {
 
       analytics: {
         totalAttempts,
+        activeParticipants,
         averagePercentage: Number(
           averagePercentage.toFixed(2)
         ),
