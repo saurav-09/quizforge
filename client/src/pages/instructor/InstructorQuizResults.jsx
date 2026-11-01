@@ -4,8 +4,6 @@ import { useAuth } from "@clerk/react";
 import {
   BarChart3,
   CheckCircle2,
-  Clock3,
-  FileQuestion,
   Loader2,
   Mail,
 } from "lucide-react";
