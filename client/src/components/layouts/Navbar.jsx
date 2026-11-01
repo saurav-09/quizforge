@@ -26,7 +26,7 @@ function Navbar() {
   ];
 
   const dashboardPath =
-    !role
+    !role || role === "pending"
       ? "/onboarding"
       : role === "instructor"
         ? "/instructor"
