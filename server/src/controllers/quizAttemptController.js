@@ -1,5 +1,6 @@
 import Quiz from "../models/Quiz.js";
 import QuizAttempt from "../models/QuizAttempt.js";
+import Room from "../models/Room.js";
 import { calculateQuizScore } from "../utils/quizScoring.js";
 
 /*
@@ -321,10 +322,13 @@ export const startQuiz = async (req, res) => {
      */
 
     if (quiz.status !== "published") {
-      return res.status(400).json({
-        success: false,
-        message: "This quiz is not available",
-      });
+      return res.status(400).json({ success: false, message: "This quiz is not available" });
+    }
+
+    if (quiz.settings?.quizMode === "practice") {
+      const assignedDirectly = (quiz.assignedStudents || []).some((id) => id.toString() === studentId.toString());
+      const roomMembership = (quiz.assignedRooms || []).length > 0 && await Room.exists({ _id: { $in: quiz.assignedRooms }, members: studentId, isActive: true });
+      if (!assignedDirectly && !roomMembership) return res.status(403).json({ success: false, message: "This practice quiz has not been assigned to you" });
     }
 
     /*
