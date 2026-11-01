@@ -27,6 +27,7 @@ const quizId =
 
   const [settings, setSettings] = useState({
     timeLimit: 30,
+    noTimeLimit: false,
     attemptsAllowed: 1,
     unlimitedAttempts: quizData.quizMode === "practice",
     shuffleQuestions: false,
@@ -75,7 +76,8 @@ const quizId =
         setAssignedRooms((quiz.assignedRooms || []).map((room) => String(room._id || room)));
 
         setSettings({
-          timeLimit: existingSettings.timeLimit || 30,
+          timeLimit: existingSettings.timeLimit ?? 30,
+          noTimeLimit: existingSettings.timeLimit === 0,
           attemptsAllowed:
             existingSettings.attemptsAllowed || 1,
           shuffleQuestions: existingSettings.shuffleQuestions || false,
@@ -135,13 +137,13 @@ const quizId =
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
+    if (name === "noTimeLimit") {
+      setSettings((prev) => ({ ...prev, noTimeLimit: checked, timeLimit: checked ? 0 : 30 }));
+      return;
+    }
     setSettings((prev) => ({
       ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : Number(value),
+      [name]: type === "checkbox" ? checked : Number(value),
     }));
   };
 
@@ -161,7 +163,7 @@ const handleContinue = () => {
   }
 
   if (
-    settings.timeLimit < 1 ||
+    (!settings.noTimeLimit && settings.timeLimit < 1) ||
     (!settings.unlimitedAttempts && settings.attemptsAllowed < 1)
   ) {
     setError(
@@ -187,7 +189,7 @@ const handleContinue = () => {
     {
       state: {
         ...quizData,
-        settings: { ...settings, unlimitedAttempts: quizData.quizMode === "practice" && settings.unlimitedAttempts },
+        settings: { ...settings, timeLimit: settings.noTimeLimit ? 0 : settings.timeLimit, unlimitedAttempts: quizData.quizMode === "practice" && settings.unlimitedAttempts },
         assignedRooms,
         assignedStudents: quizData.assignedStudents || [],
         startTime: quizData.quizMode === "test" && startTime ? startTime : null,
@@ -259,6 +261,7 @@ const handleContinue = () => {
               Time limit
             </label>
 
+            <label className="mb-2 flex items-center gap-2 text-xs text-text-secondary"><input name="noTimeLimit" type="checkbox" checked={settings.noTimeLimit} onChange={handleChange} className="h-4 w-4 accent-[#8B5CF6]" /> No time limit</label>
             <div className="relative">
               <Clock3
                 size={16}
@@ -271,7 +274,8 @@ const handleContinue = () => {
                 min="1"
                 value={settings.timeLimit}
                 onChange={handleChange}
-                className="h-10 w-full rounded-lg border border-border pl-9 pr-3 text-sm outline-none focus:border-[#8B5CF6]"
+                disabled={settings.noTimeLimit}
+                className="h-10 w-full rounded-lg border border-border pl-9 pr-3 text-sm outline-none focus:border-[#8B5CF6] disabled:bg-surface disabled:text-text-secondary"
               />
             </div>
 
