@@ -28,7 +28,12 @@ const quizId =
   const [settings, setSettings] = useState({
     timeLimit: 30,
     attemptsAllowed: 1,
+    unlimitedAttempts: quizData.quizMode === "practice",
     shuffleQuestions: false,
+    shuffleOptions: false,
+    allowBackNavigation: true,
+    negativeMarkingEnabled: false,
+    negativeMarkingPoints: 0,
   });
 
   const [startTime, setStartTime] = useState("");
@@ -69,8 +74,12 @@ const quizId =
           timeLimit: existingSettings.timeLimit || 30,
           attemptsAllowed:
             existingSettings.attemptsAllowed || 1,
-          shuffleQuestions:
-            existingSettings.shuffleQuestions || false,
+          shuffleQuestions: existingSettings.shuffleQuestions || false,
+          shuffleOptions: existingSettings.shuffleOptions || false,
+          allowBackNavigation: existingSettings.allowBackNavigation !== false,
+          negativeMarkingEnabled: existingSettings.negativeMarkingEnabled || false,
+          negativeMarkingPoints: existingSettings.negativeMarkingPoints || 0,
+          unlimitedAttempts: existingSettings.unlimitedAttempts ?? quiz.settings?.quizMode === "practice",
         });
 
         if (quiz.startTime) {
@@ -131,7 +140,7 @@ const handleContinue = () => {
 
   if (
     settings.timeLimit < 1 ||
-    settings.attemptsAllowed < 1
+    (!settings.unlimitedAttempts && settings.attemptsAllowed < 1)
   ) {
     setError(
       "Time limit and attempts allowed must be at least 1."
@@ -250,7 +259,11 @@ const handleContinue = () => {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-primary">
+            <label className="flex items-center gap-2 text-xs font-medium text-text-primary">
+              <input name="unlimitedAttempts" type="checkbox" checked={settings.unlimitedAttempts} onChange={handleChange} disabled={quizData.quizMode === "test"} className="h-4 w-4 accent-[#8B5CF6]" />
+              Unlimited attempts
+            </label>
+            {!settings.unlimitedAttempts && <><label className="mb-1.5 mt-3 block text-xs font-medium text-text-primary">
               Attempts allowed
             </label>
 
@@ -265,7 +278,7 @@ const handleContinue = () => {
 
             <p className="mt-1 text-xs text-text-secondary">
               Maximum attempts per student.
-            </p>
+            </p></>}
           </div>
         </div>
       </div>
@@ -297,8 +310,19 @@ const handleContinue = () => {
               </p>
             </div>
           </label>
-
-         
+          <label className="flex cursor-pointer items-start gap-3">
+            <input name="shuffleOptions" type="checkbox" checked={settings.shuffleOptions} onChange={handleChange} className="mt-0.5 h-4 w-4 accent-[#8B5CF6]" />
+            <span><span className="block text-sm font-medium text-text-primary">Shuffle answer options</span><span className="mt-1 block text-xs text-text-secondary">Randomize option order for each attempt.</span></span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input name="allowBackNavigation" type="checkbox" checked={settings.allowBackNavigation} onChange={handleChange} className="mt-0.5 h-4 w-4 accent-[#8B5CF6]" />
+            <span><span className="block text-sm font-medium text-text-primary">Allow previous-question navigation</span><span className="mt-1 block text-xs text-text-secondary">Students can revisit and change saved answers.</span></span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input name="negativeMarkingEnabled" type="checkbox" checked={settings.negativeMarkingEnabled} onChange={handleChange} className="mt-0.5 h-4 w-4 accent-[#8B5CF6]" />
+            <span><span className="block text-sm font-medium text-text-primary">Enable negative marking</span><span className="mt-1 block text-xs text-text-secondary">Apply a penalty for incorrect answers.</span></span>
+          </label>
+          {settings.negativeMarkingEnabled && <div className="max-w-xs"><label className="mb-1 block text-xs font-medium text-text-primary">Penalty per incorrect answer</label><input name="negativeMarkingPoints" type="number" min="0" step="0.25" value={settings.negativeMarkingPoints} onChange={handleChange} className="h-10 w-full rounded-lg border border-border px-3 text-sm" /></div>}
         </div>
       </div>
 
