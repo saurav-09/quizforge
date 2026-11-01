@@ -9,6 +9,8 @@ import userRoutes from "./routes/userRoutes.js";
 import quizRoutes from "./routes/quizRoutes.js";
 import quizAttemptRoutes from "./routes/quizAttemptRoutes.js";
 import aiQuizRoutes from "./routes/aiQuizRoutes.js";
+import roomRoutes from "./routes/roomRoutes.js";
+import questionBankRoutes from "./routes/questionBankRoutes.js";
 import startQuizAutoSubmitJob from "./jobs/quizAutoSubmitJob.js";
 
 dotenv.config();
@@ -33,6 +35,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/quiz-attempts", quizAttemptRoutes);
 app.use("/api/ai", aiQuizRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/question-bank", questionBankRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
