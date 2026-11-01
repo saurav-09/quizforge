@@ -465,21 +465,13 @@ export const startQuiz = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    const maxAttempts =
-      Number(
-        quiz.settings?.attemptsAllowed
-      ) || 1;
+    const maxAttempts = Number(quiz.settings?.attemptsAllowed) || 1;
+    const unlimitedAttempts = quiz.settings?.quizMode === "practice" && quiz.settings?.unlimitedAttempts === true;
+    const attemptCount = unlimitedAttempts ? 0 : await QuizAttempt.countDocuments({
+      quiz: quizId, student: studentId, status: "submitted",
+    });
 
-    const attemptCount =
-      await QuizAttempt.countDocuments({
-        quiz: quizId,
-        student: studentId,
-        status: "submitted",
-      });
-
-    if (
-      attemptCount >= maxAttempts
-    ) {
+    if (!unlimitedAttempts && attemptCount >= maxAttempts) {
       return res.status(400).json({
         success: false,
         message:
