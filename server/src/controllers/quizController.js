@@ -1261,65 +1261,37 @@ export const completeQuiz = async (req, res) => {
 
 export const shareQuizResults = async (req, res) => {
   try {
-    const quiz = await Quiz.findOne({
-      _id: req.params.id,
-      creator: req.user._id,
-    });
+    const quiz = await Quiz.findOne({ _id: req.params.id, creator: req.user._id });
+    if (!quiz) return res.status(404).json({ success: false, message: "Quiz not found" });
+    if (quiz.settings?.quizMode !== "test") return res.status(400).json({ success: false, message: "Results sharing is only available for tests" });
+    if (quiz.status !== "completed") return res.status(400).json({ success: false, message: "Complete the test before releasing results" });
+    if (quiz.resultsShared) return res.status(400).json({ success: false, message: "Results have already been released to everyone" });
 
-    if (!quiz) {
-      return res.status(404).json({
-        success: false,
-        message: "Quiz not found",
-      });
+    const requestedIds = Array.isArray(req.body.studentIds) && req.body.studentIds.length
+      ? [...new Set(req.body.studentIds.map(String))]
+      : null;
+    const filter = { quiz: quiz._id, status: "submitted" };
+    if (requestedIds) filter.student = { $in: requestedIds };
+    const attempts = await QuizAttempt.find(filter).populate("student", "name email");
+    if (!attempts.length) return res.status(400).json({ success: false, message: "No submitted results found for the selected students" });
+    if (requestedIds && new Set(attempts.map((item) => item.student?._id?.toString()).filter(Boolean)).size !== requestedIds.length) {
+      return res.status(400).json({ success: false, message: "One or more selected students do not have a submitted attempt" });
     }
 
-    // Result sharing is only available for test quizzes
-    if (quiz.settings?.quizMode !== "test") {
-      return res.status(400).json({
-        success: false,
-        message: "Results sharing is only available for test quizzes",
-      });
+    // Release access first. Email is a notification and must not control whether the result is visible.
+    if (requestedIds) {
+      const alreadyReleased = new Set((quiz.resultsReleasedTo || []).map((id) => id.toString()));
+      quiz.resultsReleasedTo = [...new Set([...alreadyReleased, ...requestedIds])];
+    } else {
+      quiz.resultsShared = true;
+      quiz.resultsSharedAt = new Date();
     }
-
-    // Test must be completed before results can be shared
-    if (quiz.status !== "completed") {
-      return res.status(400).json({
-        success: false,
-        message: "Complete the test before sharing results",
-      });
-    }
-
-    // Prevent duplicate result emails
-    if (quiz.resultsShared) {
-      return res.status(400).json({
-        success: false,
-        message: "Results have already been shared",
-      });
-    }
-
-    // Get all submitted attempts
-    const attempts = await QuizAttempt.find({
-      quiz: quiz._id,
-      status: "submitted",
-    }).populate("student", "name email");
-
-    if (!attempts.length) {
-      return res.status(400).json({
-        success: false,
-        message: "No student results available",
-      });
-    }
+    await quiz.save();
 
     let sent = 0;
     let failed = 0;
-
     for (const attempt of attempts) {
-      // Student must have an email address
-      if (!attempt.student?.email) {
-        failed++;
-        continue;
-      }
-
+      if (!attempt.student?.email) { failed += 1; continue; }
       try {
         await sendQuizResultEmail({
           email: attempt.student.email,
@@ -1329,46 +1301,24 @@ export const shareQuizResults = async (req, res) => {
           totalPoints: attempt.totalPoints,
           percentage: attempt.percentage,
         });
-
-        sent++;
+        sent += 1;
       } catch (error) {
-        console.error(
-          `Failed to send result email to ${attempt.student.email}:`,
-          error
-        );
-
-        failed++;
+        console.error(`Failed to send result email to ${attempt.student.email}:`, error);
+        failed += 1;
       }
-    }
-
-    /*
-     * Mark results as shared only when at least
-     * one result email was successfully sent.
-     */
-    if (sent > 0) {
-      quiz.resultsShared = true;
-      quiz.resultsSharedAt = new Date();
-
-      await quiz.save();
     }
 
     return res.status(200).json({
       success: true,
-      message:
-        sent > 0
-          ? "Quiz results shared successfully"
-          : "No result emails were sent",
+      message: requestedIds ? "Results released to selected students" : "Results released to all students",
+      releasedCount: attempts.length,
       sent,
       failed,
-      resultsShared: sent > 0,
+      resultsShared: quiz.resultsShared,
     });
   } catch (error) {
     console.error("Share quiz results error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Failed to release quiz results" });
   }
 };
 
