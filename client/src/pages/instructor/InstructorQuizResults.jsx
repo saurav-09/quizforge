@@ -128,6 +128,7 @@ function InstructorQuizResults() {
       }
 
       setShowShareConfirm(false);
+      setSelectedStudents([]);
 
       await fetchResults();
     } catch (error) {
@@ -514,7 +515,7 @@ function InstructorQuizResults() {
                         key={result.attemptId}
                         className="border-b border-border last:border-b-0"
                       >
-                        <td className="px-5 py-4"><input type="checkbox" aria-label={"Select " + result.student?.name + " for result release"} checked={selectedStudents.includes(String(result.student?._id))} onChange={() => toggleStudent(String(result.student?._id))} /></td>
+                        <td className="px-5 py-4">{isTest && <input type="checkbox" aria-label={"Select " + result.student?.name + " for result release"} checked={selectedStudents.includes(String(result.student?._id))} onChange={() => toggleStudent(String(result.student?._id))} />}</td>
                         <td className="px-5 py-4">
                           <p className="text-sm font-medium text-text-primary">
                             {result.student?.name ||
