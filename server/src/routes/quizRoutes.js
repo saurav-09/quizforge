@@ -5,6 +5,7 @@ import {
   getMyQuizzes,
   getQuiz,
   getQuizResults,
+  getLiveTestMonitor,
   completeQuiz,
   shareQuizResults,
   updateQuiz,
