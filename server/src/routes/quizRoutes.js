@@ -65,6 +65,13 @@ router.get(
 );
 
 router.get(
+  "/:id/monitor",
+  protect,
+  requireRole("instructor"),
+  getLiveTestMonitor
+);
+
+router.get(
   "/:id/results",
   protect,
   requireRole("instructor"),
