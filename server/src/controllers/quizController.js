@@ -1273,7 +1273,7 @@ export const getAvailableQuizzes = async (req, res) => {
       "settings.quizMode": "practice",
     })
       .select(
-        "title description questions settings createdAt creator -questions.correctAnswer -questions.explanation"
+        "title description questions.question questions.options questions.points settings createdAt creator"
       )
       .populate("creator", "name")
       .sort({ createdAt: -1 });
@@ -1312,7 +1312,7 @@ export const joinQuiz = async (req, res) => {
       "settings.quizMode": "test",
     })
       .select(
-        "title description questions settings startTime endTime creator -questions.correctAnswer -questions.explanation"
+        "title description questions.question questions.options questions.points settings startTime endTime creator"
       )
       .populate("creator", "name");
 
