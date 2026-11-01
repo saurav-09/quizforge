@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { useAuth } from "@clerk/react";
 
 const AuthContext = createContext(null);
@@ -9,36 +15,45 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = useCallback(async () => {
     if (!isSignedIn) {
       setUser(null);
       setIsLoadingUser(false);
       return;
     }
 
+    setIsLoadingUser(true);
+
     try {
-      setIsLoadingUser(true);
-
       const token = await getToken();
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
 
-      const response = await fetch("/api/user/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      let response = await fetch("/api/user/me", { headers });
 
+      // First-time Clerk users need a QuizForge database record.
       if (response.status === 404) {
-        // Clerk user exists, but QuizForge user
-        // has not been created yet.
-        setUser(null);
-        return;
-      }
+        const syncResponse = await fetch("/api/user/sync", {
+          method: "POST",
+          headers,
+        });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch current user");
+        const syncData = await syncResponse.json();
+
+        if (!syncResponse.ok) {
+          throw new Error(syncData.message || "Failed to sync account");
+        }
+
+        response = await fetch("/api/user/me", { headers });
       }
 
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load your account");
+      }
+
       setUser(data.user);
     } catch (error) {
       console.error("Fetch current user error:", error);
@@ -46,13 +61,13 @@ export function AuthProvider({ children }) {
     } finally {
       setIsLoadingUser(false);
     }
-  };
+  }, [getToken, isSignedIn]);
 
   useEffect(() => {
-    if (!isLoaded) return;
-
-    fetchCurrentUser();
-  }, [isLoaded, isSignedIn]);
+    if (isLoaded) {
+      fetchCurrentUser();
+    }
+  }, [isLoaded, fetchCurrentUser]);
 
   const value = {
     user,

@@ -1,4 +1,4 @@
-import { clerkClient, getAuth } from "@clerk/express";
+import { clerkClient } from "@clerk/express";
 import User from "../models/User.js";
 
 export const syncUser = async (req, res) => {
@@ -13,12 +13,9 @@ export const syncUser = async (req, res) => {
     }
 
     const clerkUser = await clerkClient.users.getUser(userId);
-
     const name =
-      [clerkUser.firstName, clerkUser.lastName]
-        .filter(Boolean)
-        .join(" ") || "User";
-
+      [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+      "User";
     const email = clerkUser.primaryEmailAddress?.emailAddress;
 
     if (!email) {
@@ -39,7 +36,7 @@ export const syncUser = async (req, res) => {
         },
         $setOnInsert: {
           clerkId: userId,
-          role: "student",
+          role: "pending",
         },
       },
       {
@@ -56,7 +53,6 @@ export const syncUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Sync user error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Failed to sync user",
@@ -75,19 +71,16 @@ export const updateUserRole = async (req, res) => {
       });
     }
 
-    // Role can only be selected once during onboarding.
-    if (req.user.role !== "student") {
-      return res.status(400).json({
+    if (req.user.role !== "pending") {
+      return res.status(409).json({
         success: false,
-        message: "User role has already been selected",
+        message: "Your account role has already been selected.",
       });
     }
 
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        role,
-      },
+    const user = await User.findOneAndUpdate(
+      { _id: req.user._id, role: "pending" },
+      { $set: { role } },
       {
         new: true,
         runValidators: true,
@@ -95,9 +88,9 @@ export const updateUserRole = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(404).json({
+      return res.status(409).json({
         success: false,
-        message: "User not found",
+        message: "Your account role has already been selected.",
       });
     }
 
@@ -108,7 +101,6 @@ export const updateUserRole = async (req, res) => {
     });
   } catch (error) {
     console.error("Update role error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Failed to update role",
@@ -124,7 +116,6 @@ export const getCurrentUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Get current user error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Failed to get current user",

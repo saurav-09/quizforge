@@ -6,7 +6,7 @@ const steps = [
     number: "01",
     title: "Create",
     description:
-      "Build a quiz yourself, generate it with AI from a topic, or turn your study material into questions.",
+      "Build a quiz yourself or generate a draft question set with AI from a topic.",
     icon: FileText,
     preview: (
       <div className="mt-6 rounded-xl border border-white/[0.08] bg-[#0D0B1A]/70 p-4">
@@ -22,7 +22,7 @@ const steps = [
           </div>
 
           <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-center">
-            <p className="text-xs text-[#94A3B8]">Material</p>
+            <p className="text-xs text-[#94A3B8]">Timed test</p>
           </div>
         </div>
       </div>
@@ -32,7 +32,7 @@ const steps = [
     number: "02",
     title: "Share",
     description:
-      "Publish your quiz and let students join instantly using a link, access code, or QR scanner.",
+      "Publish a practice quiz or share the access code for a scheduled test.",
     icon: Share2,
     preview: (
       <div className="mt-6 rounded-xl border border-white/[0.08] bg-[#0D0B1A]/70 p-4">
@@ -63,7 +63,7 @@ const steps = [
     number: "03",
     title: "Assess",
     description:
-      "Run the assessment live, watch participation in real time, and give students detailed explanations after submission.",
+      "Track active test attempts, review submissions, and release results with explanations after the assessment.",
     icon: Radio,
     preview: (
       <div className="mt-6 rounded-xl border border-white/[0.08] bg-[#0D0B1A]/70 p-4">

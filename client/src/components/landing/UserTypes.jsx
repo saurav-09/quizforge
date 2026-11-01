@@ -1,16 +1,14 @@
 import {
-  BarChart3,
   Brain,
   GraduationCap,
   Monitor,
-  Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const instructorPoints = [
   "Create quizzes manually or with AI",
-  "Generate questions from PDF and DOCX material",
-  "Run live sessions and monitor participation",
+  "Generate question sets from a topic with AI",
+  "Run timed tests and monitor active attempts",
   "Analyze question-level performance",
 ];
 

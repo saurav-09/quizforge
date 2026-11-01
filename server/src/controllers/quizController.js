@@ -916,6 +916,10 @@ export const getQuizResults = async (req, res) => {
     }));
 
     const totalAttempts = results.length;
+    const activeParticipants = await QuizAttempt.countDocuments({
+      quiz: quiz._id,
+      status: "in-progress",
+    });
 
     const averagePercentage =
       totalAttempts > 0
@@ -958,6 +962,7 @@ export const getQuizResults = async (req, res) => {
 
       analytics: {
         totalAttempts,
+        activeParticipants,
         averagePercentage: Number(
           averagePercentage.toFixed(2)
         ),
@@ -1273,7 +1278,7 @@ export const getAvailableQuizzes = async (req, res) => {
       "settings.quizMode": "practice",
     })
       .select(
-        "title description questions settings createdAt creator"
+        "title description questions.question questions.options questions.points settings createdAt creator"
       )
       .populate("creator", "name")
       .sort({ createdAt: -1 });
@@ -1312,7 +1317,7 @@ export const joinQuiz = async (req, res) => {
       "settings.quizMode": "test",
     })
       .select(
-        "title description questions settings startTime endTime creator"
+        "title description questions.question questions.options questions.points settings startTime endTime creator"
       )
       .populate("creator", "name");
 

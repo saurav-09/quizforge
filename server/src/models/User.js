@@ -30,54 +30,24 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["student", "instructor"],
+      enum: ["pending", "student", "instructor"],
       required: true,
-      default: "student",
+      default: "pending",
       index: true,
     },
 
     studentStats: {
-      quizzesAttempted: {
-        type: Number,
-        default: 0,
-      },
-
-      averageScore: {
-        type: Number,
-        default: 0,
-      },
-
-      bestScore: {
-        type: Number,
-        default: 0,
-      },
-
-      completionRate: {
-        type: Number,
-        default: 0,
-      },
+      quizzesAttempted: { type: Number, default: 0 },
+      averageScore: { type: Number, default: 0 },
+      bestScore: { type: Number, default: 0 },
+      completionRate: { type: Number, default: 0 },
     },
 
     instructorStats: {
-      totalQuizzes: {
-        type: Number,
-        default: 0,
-      },
-
-      totalParticipants: {
-        type: Number,
-        default: 0,
-      },
-
-      totalAttempts: {
-        type: Number,
-        default: 0,
-      },
-
-      averageScoreAcrossQuizzes: {
-        type: Number,
-        default: 0,
-      },
+      totalQuizzes: { type: Number, default: 0 },
+      totalParticipants: { type: Number, default: 0 },
+      totalAttempts: { type: Number, default: 0 },
+      averageScoreAcrossQuizzes: { type: Number, default: 0 },
     },
 
     isActive: {

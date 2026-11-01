@@ -16,7 +16,7 @@ import {
 import { useAuth } from "@clerk/react";
 
 function StudentQuizAttempt() {
-  const { quizId, attemptId } = useParams();
+  const { attemptId } = useParams();
   const { getToken } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();

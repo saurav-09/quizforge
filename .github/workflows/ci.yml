@@ -1,0 +1,52 @@
+name: QuizForge CI
+
+on:
+  push:
+    branches: [main, quizforge-completion]
+  pull_request:
+    branches: [main]
+
+jobs:
+  client:
+    name: Client build and lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+      - name: Lint client
+        working-directory: client
+        run: npm run lint
+      - name: Build client
+        working-directory: client
+        run: npm run build
+
+  server:
+    name: Server syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+      - name: Check server JavaScript syntax
+        working-directory: server
+        run: find src test -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Run server unit tests
+        working-directory: server
+        run: npm test

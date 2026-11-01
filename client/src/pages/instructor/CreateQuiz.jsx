@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Sparkles, Loader2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/react";
 
@@ -19,6 +19,11 @@ function CreateQuiz() {
     title: "",
     description: "",
   });
+
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiCount, setAiCount] = useState(5);
+  const [aiDifficulty, setAiDifficulty] = useState("medium");
+  const [generating, setGenerating] = useState(false);
 
   const [loading, setLoading] = useState(isEditMode);
   const [error, setError] = useState("");
@@ -80,6 +85,62 @@ function CreateQuiz() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleGenerateQuestions = async () => {
+    if (isEditMode) return;
+
+    if (aiTopic.trim().length < 3) {
+      setError("Enter a topic with at least 3 characters to generate questions.");
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      setError("");
+
+      const token = await getToken();
+      const response = await fetch("/api/ai/generate-quiz", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          topic: aiTopic.trim(),
+          questionCount: Number(aiCount),
+          difficulty: aiDifficulty,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to generate questions");
+      }
+
+      const title = formData.title.trim() || `${aiTopic.trim()} Quiz`;
+      const description =
+        formData.description.trim() ||
+        `A ${aiDifficulty}-difficulty quiz about ${aiTopic.trim()}.`;
+
+      setFormData({ title, description });
+
+      navigate("/instructor/quizzes/create/questions", {
+        state: {
+          title,
+          description,
+          quizMode,
+          questions: data.questions,
+          isEditMode: false,
+        },
+      });
+    } catch (requestError) {
+      console.error("AI question generation error:", requestError);
+      setError(requestError.message || "Unable to generate questions");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleContinue = () => {
@@ -276,6 +337,85 @@ function CreateQuiz() {
           </div>
         </div>
       </div>
+
+      {/* AI question generation */}
+      {!isEditMode && (
+        <div className="rounded-xl border border-[#8B5CF6]/25 bg-[#8B5CF6]/[0.04] p-4 sm:p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#8B5CF6]/10 text-[#8B5CF6]">
+              <Sparkles size={19} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary">
+                Generate questions with AI
+              </h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Create a question set from a topic, then review and edit every question before publishing.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-3">
+              <label className="mb-1.5 block text-xs font-medium text-text-primary">
+                Topic
+              </label>
+              <input
+                value={aiTopic}
+                onChange={(event) => setAiTopic(event.target.value)}
+                maxLength={300}
+                placeholder="e.g. JavaScript closures and promises"
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-[#8B5CF6]"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-text-primary">
+                Number of questions
+              </label>
+              <select
+                value={aiCount}
+                onChange={(event) => setAiCount(Number(event.target.value))}
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-[#8B5CF6]"
+              >
+                {[5, 10, 15, 20].map((count) => (
+                  <option key={count} value={count}>{count} questions</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-text-primary">
+                Difficulty
+              </label>
+              <select
+                value={aiDifficulty}
+                onChange={(event) => setAiDifficulty(event.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-[#8B5CF6]"
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleGenerateQuestions}
+                disabled={generating || aiTopic.trim().length < 3}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#8B5CF6] px-4 text-sm font-medium text-white transition hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                {generating ? "Generating..." : "Generate questions"}
+              </button>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-text-secondary">
+            AI-generated content can contain mistakes. Review answers before publishing.
+          </p>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">

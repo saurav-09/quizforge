@@ -34,7 +34,11 @@ const quizId =
 
 const isEditMode = Boolean(quizId);
 
-  const [questions, setQuestions] = useState([createQuestion()]);
+  const [questions, setQuestions] = useState(() =>
+    Array.isArray(quizData.questions) && quizData.questions.length > 0
+      ? quizData.questions
+      : [createQuestion()]
+  );
   const [loading, setLoading] = useState(isEditMode);
   const [error, setError] = useState("");
 
