@@ -21,9 +21,9 @@ function InstructorQuizResults() {
   const [showShareConfirm, setShowShareConfirm] =
     useState(false);
 
-  const fetchResults = useCallback(async () => {
+  const fetchResults = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
 
       const token = await getToken();
@@ -58,7 +58,7 @@ function InstructorQuizResults() {
           "Failed to load quiz results"
       );
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [getToken, quizId]);
 
@@ -71,7 +71,7 @@ function InstructorQuizResults() {
       return undefined;
     }
 
-    const interval = setInterval(fetchResults, 10000);
+    const interval = setInterval(() => fetchResults(true), 10000);
     return () => clearInterval(interval);
   }, [data?.quiz?.status, data?.quiz?.quizMode, fetchResults]);
 
