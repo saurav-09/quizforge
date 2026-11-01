@@ -20,6 +20,7 @@ import CreateQuizPreview from "../pages/instructor/CreateQuizPreview";
 import InstructorAttemptResult from "../pages/instructor/InstructorAttemptResult";
 import InstructorRooms from "../pages/instructor/InstructorRooms";
 import InstructorQuestionBank from "../pages/instructor/InstructorQuestionBank";
+import InstructorLiveTestMonitor from "../pages/instructor/InstructorLiveTestMonitor";
 
 import StudentDashboard from "../pages/student/StudentDashboard";
 import StudentQuizzes from "../pages/student/StudentQuizzes";
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route index element={<InstructorDashboard />} />
         <Route path="rooms" element={<InstructorRooms />} />
         <Route path="question-bank" element={<InstructorQuestionBank />} />
+        <Route path="quizzes/:quizId/monitor" element={<InstructorLiveTestMonitor />} />
         <Route path="results" element={<InstructorResults />} />
         <Route
   path="results/:quizId"
