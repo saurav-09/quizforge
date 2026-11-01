@@ -5,6 +5,7 @@ import {
   getQuizAttempt,
   getQuizAttemptResult,
   getMyQuizAttempts,
+  getMyPerformanceAnalytics,
   saveQuizProgress,
   submitQuiz,
 } from "../controllers/quizAttemptController.js";
@@ -44,6 +45,8 @@ router.post(
 | Get / Resume Attempt
 |--------------------------------------------------------------------------
 */
+
+router.get("/analytics/me", getMyPerformanceAnalytics);
 
 router.get(
   "/my",
