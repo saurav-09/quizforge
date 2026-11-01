@@ -121,6 +121,8 @@ const quizSchema = new mongoose.Schema(
       default: null,
     },
 
+    resultsReleasedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
     accessCode: {
       type: String,
       unique: true,
