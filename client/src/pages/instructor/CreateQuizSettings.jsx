@@ -37,6 +37,7 @@ const quizId =
   });
 
   const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [rooms, setRooms] = useState([]);
   const [assignedRooms, setAssignedRooms] = useState([]);
   const [loading, setLoading] = useState(isEditMode);
@@ -97,6 +98,10 @@ const quizId =
 
           setStartTime(localDateTime);
         }
+        if (quiz.endTime) {
+          const date = new Date(quiz.endTime);
+          setEndTime(new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+        }
       } catch (error) {
         console.error(
           "Fetch quiz settings error:",
@@ -150,13 +155,8 @@ const handleContinue = () => {
     return;
   }
 
-  if (
-    quizData.quizMode === "test" &&
-    !startTime
-  ) {
-    setError(
-      "Please select a test starting time."
-    );
+  if (quizData.quizMode === "test" && startTime && endTime && new Date(endTime) <= new Date(startTime)) {
+    setError("Test end time must be after its start time.");
     return;
   }
 
@@ -190,10 +190,8 @@ const handleContinue = () => {
         settings: { ...settings, unlimitedAttempts: quizData.quizMode === "practice" && settings.unlimitedAttempts },
         assignedRooms,
         assignedStudents: quizData.assignedStudents || [],
-        startTime:
-          quizData.quizMode === "test"
-            ? startTime
-            : null,
+        startTime: quizData.quizMode === "test" && startTime ? startTime : null,
+        endTime: quizData.quizMode === "test" && endTime ? endTime : null,
         quizId,
         isEditMode,
       },
@@ -360,7 +358,7 @@ const handleContinue = () => {
           </h3>
 
           <p className="mt-1 text-sm text-text-secondary">
-            Set when students can start the test.
+            Optionally set when the test opens and when it closes. Leave blank to make it available immediately with no closing time.
           </p>
 
           <div className="mt-5">
@@ -377,9 +375,12 @@ const handleContinue = () => {
               className="h-10 w-full rounded-lg border border-border px-3 text-sm outline-none focus:border-[#8B5CF6] sm:max-w-sm"
             />
 
-            <p className="mt-1 text-xs text-text-secondary">
-              The test will automatically end after the selected time limit.
-            </p>
+            <p className="mt-1 text-xs text-text-secondary">Leave blank to allow students to start immediately.</p>
+          </div>
+          <div className="mt-4">
+            <label className="mb-1.5 block text-xs font-medium text-text-primary">Availability end (optional)</label>
+            <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="h-10 w-full rounded-lg border border-border px-3 text-sm outline-none focus:border-[#8B5CF6] sm:max-w-sm" />
+            <p className="mt-1 text-xs text-text-secondary">Students cannot start after this time; active attempts also expire at the deadline.</p>
           </div>
         </div>
       )}
