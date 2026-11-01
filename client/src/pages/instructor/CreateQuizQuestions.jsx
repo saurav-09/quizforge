@@ -44,6 +44,8 @@ const isEditMode = Boolean(quizId);
   );
   const [loading, setLoading] = useState(isEditMode);
   const [error, setError] = useState("");
+  const [savedQuestionIds, setSavedQuestionIds] = useState([]);
+  const [savingQuestionIndex, setSavingQuestionIndex] = useState(null);
 
   useEffect(() => {
     if (!quizId) {
@@ -117,6 +119,26 @@ const isEditMode = Boolean(quizId);
 
     fetchQuizQuestions();
   }, [quizId]);
+
+  const saveToQuestionBank = async (question, index) => {
+    try {
+      setSavingQuestionIndex(index);
+      const token = await getToken();
+      const response = await fetch("/api/question-bank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify(question),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Unable to save question");
+      setSavedQuestionIds((current) => [...current, index]);
+      setError("");
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save question to bank");
+    } finally {
+      setSavingQuestionIndex(null);
+    }
+  };
 
   const updateQuestion = (index, field, value) => {
     setQuestions((prev) =>
@@ -298,6 +320,8 @@ state={quizData}
                 Question {questionIndex + 1}
               </h3>
 
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={savingQuestionIndex === questionIndex || savedQuestionIds.includes(questionIndex)} onClick={() => saveToQuestionBank(question, questionIndex)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-brand-violet disabled:opacity-50">{savedQuestionIds.includes(questionIndex) ? "Saved to bank" : savingQuestionIndex === questionIndex ? "Saving..." : "Save to bank"}</button>
               {questions.length > 1 && (
                 <button
                   type="button"
@@ -310,6 +334,7 @@ state={quizData}
                   <Trash2 size={16} />
                 </button>
               )}
+              </div>
             </div>
 
             <div className="mt-5 space-y-4">
