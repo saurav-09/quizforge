@@ -40,10 +40,14 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`QuizForge server running on port ${PORT}`);
-});
+const startServer = async () => {
+  await connectDB();
 
-connectDB();
+  app.listen(PORT, () => {
+    console.log(`QuizForge server running on port ${PORT}`);
+  });
 
-startQuizAutoSubmitJob();
+  startQuizAutoSubmitJob();
+};
+
+startServer();
