@@ -54,6 +54,7 @@ const studentNavigation = [
     path: "/student/quizzes",
   },
   { label: "My Rooms", icon: Users, path: "/student/rooms" },
+  { label: "My Performance", icon: BarChart3, path: "/student/analytics" },
   {
     label: "Join Quiz",
     icon: Users,
