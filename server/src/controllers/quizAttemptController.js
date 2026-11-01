@@ -129,7 +129,6 @@ const shuffleItems = (items = []) => {
 
 const buildSafeQuiz = (quiz, attempt) => {
   const optionMap = new Map((attempt?.optionOrders || []).map((item) => [item.questionId.toString(), item.options]));
-  const questionMap = new Map((quiz.questions || []).map((item) => [item._id.toString(), item]));
   let questions = getSafeQuestions(quiz.questions).map((question) => ({
     ...question,
     options: optionMap.get(question._id.toString()) || question.options,
