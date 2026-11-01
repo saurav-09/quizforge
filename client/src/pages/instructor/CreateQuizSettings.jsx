@@ -37,6 +37,8 @@ const quizId =
   });
 
   const [startTime, setStartTime] = useState("");
+  const [rooms, setRooms] = useState([]);
+  const [assignedRooms, setAssignedRooms] = useState([]);
   const [loading, setLoading] = useState(isEditMode);
   const [error, setError] = useState("");
 
@@ -69,6 +71,7 @@ const quizId =
 
         const quiz = data.quiz;
         const existingSettings = quiz.settings || {};
+        setAssignedRooms((quiz.assignedRooms || []).map((room) => String(room._id || room)));
 
         setSettings({
           timeLimit: existingSettings.timeLimit || 30,
@@ -111,6 +114,20 @@ const quizId =
     fetchQuizSettings();
   }, [quizId]);
 
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const token = await getToken();
+        const response = await fetch("/api/rooms/my", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await response.json();
+        if (response.ok) setRooms(data.rooms || []);
+      } catch (roomError) { console.error("Load rooms error:", roomError); }
+    };
+    fetchRooms();
+  }, [getToken]);
+
+  const toggleRoom = (roomId) => setAssignedRooms((current) => current.includes(roomId) ? current.filter((id) => id !== roomId) : [...current, roomId]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -125,6 +142,11 @@ const quizId =
 
 const handleContinue = () => {
   if (!quizData) {
+    return;
+  }
+
+  if (quizData.quizMode === "practice" && assignedRooms.length === 0) {
+    setError("Select at least one room for this practice quiz.");
     return;
   }
 
@@ -165,7 +187,9 @@ const handleContinue = () => {
     {
       state: {
         ...quizData,
-        settings,
+        settings: { ...settings, unlimitedAttempts: quizData.quizMode === "practice" && settings.unlimitedAttempts },
+        assignedRooms,
+        assignedStudents: quizData.assignedStudents || [],
         startTime:
           quizData.quizMode === "test"
             ? startTime
@@ -325,6 +349,8 @@ const handleContinue = () => {
           {settings.negativeMarkingEnabled && <div className="max-w-xs"><label className="mb-1 block text-xs font-medium text-text-primary">Penalty per incorrect answer</label><input name="negativeMarkingPoints" type="number" min="0" step="0.25" value={settings.negativeMarkingPoints} onChange={handleChange} className="h-10 w-full rounded-lg border border-border px-3 text-sm" /></div>}
         </div>
       </div>
+
+      {quizData.quizMode === "practice" && <div className="rounded-xl border border-border bg-white p-4 sm:p-6"><h3 className="text-sm font-semibold text-text-primary">Assign to rooms</h3><p className="mt-1 text-xs text-text-secondary">Only students in selected rooms can access this practice quiz.</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{rooms.length === 0 ? <p className="text-sm text-text-secondary">Create a room first to assign practice quizzes.</p> : rooms.map((room) => <label key={room._id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" checked={assignedRooms.includes(String(room._id))} onChange={() => toggleRoom(String(room._id))} className="h-4 w-4 accent-[#8B5CF6]" /><span className="text-text-primary">{room.name}</span><span className="ml-auto text-xs text-text-secondary">{room.members?.length || 0} students</span></label>)}</div></div>}
 
       {/* Test Schedule */}
       {quizData.quizMode === "test" && (
