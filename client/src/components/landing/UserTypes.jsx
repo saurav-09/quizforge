@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 
 const instructorPoints = [
   "Create quizzes manually or with AI",
-  "Generate questions from PDF and DOCX material",
+  "Generate question sets from a topic with AI",
   "Run live sessions and monitor participation",
   "Analyze question-level performance",
 ];
