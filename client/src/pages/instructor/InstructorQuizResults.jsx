@@ -20,6 +20,7 @@ function InstructorQuizResults() {
   const [shareError, setShareError] = useState("");
   const [showShareConfirm, setShowShareConfirm] =
     useState(false);
+  const [selectedStudents, setSelectedStudents] = useState([]);
 
   const fetchResults = useCallback(async (silent = false) => {
     try {
