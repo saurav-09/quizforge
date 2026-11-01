@@ -367,6 +367,8 @@ function InstructorQuizzes() {
                     </button>
                   )}
 
+                  {mode === "test" && quiz.status === "published" && <Link to={`/instructor/quizzes/${quiz._id}/monitor`} className="inline-flex items-center justify-center rounded-button border border-border px-3 py-2.5 text-xs font-medium text-brand-violet hover:bg-background-elevated">Monitor</Link>}
+
                   {/* Edit only when quiz is not archived */}
                   {!isArchived && (
                     <Link
