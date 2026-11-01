@@ -469,7 +469,7 @@ export const startQuiz = async (req, res) => {
           ),
 
         quiz:
-          buildSafeQuiz(quiz),
+          buildSafeQuiz(quiz, attempt),
       });
     }
 
@@ -542,7 +542,7 @@ export const startQuiz = async (req, res) => {
       answers: {},
 
       quiz:
-        buildSafeQuiz(quiz),
+        buildSafeQuiz(quiz, attempt),
     });
   } catch (error) {
     console.error(
