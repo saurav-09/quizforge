@@ -1,4 +1,7 @@
 const parseModelJson = (content) => JSON.parse(content.trim());
+const generationRequests = new Map();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const MAX_GENERATIONS_PER_WINDOW = 10;
 
 export const generateQuizQuestions = async (req, res) => {
   try {
@@ -42,8 +45,25 @@ export const generateQuizQuestions = async (req, res) => {
       });
     }
 
+    const now = Date.now();
+    const userId = req.user._id.toString();
+    const recentRequests = (generationRequests.get(userId) || []).filter(
+      (timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS
+    );
+
+    if (recentRequests.length >= MAX_GENERATIONS_PER_WINDOW) {
+      return res.status(429).json({
+        success: false,
+        message: "AI generation limit reached. Please try again in 15 minutes.",
+      });
+    }
+
+    recentRequests.push(now);
+    generationRequests.set(userId, recentRequests);
+
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      signal: AbortSignal.timeout(45000),
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -52,6 +72,7 @@ export const generateQuizQuestions = async (req, res) => {
       body: JSON.stringify({
         model,
         temperature: 0.4,
+        max_completion_tokens: 5000,
         response_format: { type: "json_object" },
         messages: [
           {
