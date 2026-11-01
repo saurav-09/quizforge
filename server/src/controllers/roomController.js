@@ -34,7 +34,7 @@ export const getMyRooms = async (req, res) => {
 
 export const getStudentRooms = async (req, res) => {
   try {
-    const rooms = await Room.find({ members: req.user._id, isActive: true }).populate("instructor", "name").select("name description code instructor members createdAt").sort({ createdAt: -1 }).lean();
+    const rooms = await Room.find({ members: req.user._id, isActive: true }).populate("instructor", "name").select("name description instructor createdAt").sort({ createdAt: -1 }).lean();
     return res.json({ success: true, rooms });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Unable to load joined rooms" });
