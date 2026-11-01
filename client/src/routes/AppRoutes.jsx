@@ -30,6 +30,7 @@ import StudentQuizResult from "../pages/student/StudentQuizResult";
 import StudentResults from "../pages/student/StudentResults";
 import StudentJoinQuiz from "../pages/student/StudentJoinQuiz";
 import StudentRooms from "../pages/student/StudentRooms";
+import StudentPerformance from "../pages/student/StudentPerformance";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -94,6 +95,7 @@ function AppRoutes() {
 >
   <Route index element={<StudentDashboard />} />
   <Route path="rooms" element={<StudentRooms />} />
+  <Route path="analytics" element={<StudentPerformance />} />
 
   <Route
     path="quizzes"
