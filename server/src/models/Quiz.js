@@ -68,6 +68,10 @@ const quizSchema = new mongoose.Schema(
       default: [],
     },
 
+    assignedRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: "Room" }],
+    assignedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    registeredStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
     settings: {
       timeLimit: {
         type: Number,
