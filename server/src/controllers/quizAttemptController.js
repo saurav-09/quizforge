@@ -348,15 +348,10 @@ export const startQuiz = async (req, res) => {
         });
       }
 
-      if (
-        accessCode.trim().toUpperCase() !==
-        quiz.accessCode?.toUpperCase()
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: "Invalid access code",
-        });
+      if (accessCode.trim().toUpperCase() !== quiz.accessCode?.toUpperCase()) {
+        return res.status(403).json({ success: false, message: "Invalid access code" });
       }
+      await Quiz.updateOne({ _id: quiz._id }, { $addToSet: { registeredStudents: studentId } });
     }
 
     const now = new Date();
