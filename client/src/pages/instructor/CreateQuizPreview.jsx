@@ -153,6 +153,8 @@ const isEditMode = Boolean(quizId);
 
       startTime,
       endTime,
+      assignedRooms: quizData.assignedRooms || [],
+      assignedStudents: quizData.assignedStudents || [],
     };
 
     // Create new quiz
