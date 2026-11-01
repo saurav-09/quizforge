@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { useAuth } from "@clerk/react";
+import { useLocation } from "react-router-dom";
 
 function StudentRooms() {
   const { getToken } = useAuth();
+  const location = useLocation();
   const [rooms, setRooms] = useState([]);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(() => new URLSearchParams(location.search).get("code") || "");
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
