@@ -29,6 +29,10 @@ const questionSchema = new mongoose.Schema(
       trim: true,
     },
 
+    topic: { type: String, default: "General", trim: true, maxlength: 100 },
+    subtopic: { type: String, default: "", trim: true, maxlength: 100 },
+    difficulty: { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+
     points: {
       type: Number,
       default: 1,
@@ -77,10 +81,12 @@ const quizSchema = new mongoose.Schema(
         min: 1,
       },
 
-      shuffleQuestions: {
-        type: Boolean,
-        default: false,
-      },
+      shuffleQuestions: { type: Boolean, default: false },
+      shuffleOptions: { type: Boolean, default: false },
+      allowBackNavigation: { type: Boolean, default: true },
+      negativeMarkingEnabled: { type: Boolean, default: false },
+      negativeMarkingPoints: { type: Number, default: 0, min: 0 },
+      unlimitedAttempts: { type: Boolean, default: false },
 
       quizMode: {
         type: String,
