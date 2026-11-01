@@ -6,6 +6,7 @@ import {
   getQuiz,
   getQuizResults,
   getLiveTestMonitor,
+  getInstructorAnalytics,
   completeQuiz,
   shareQuizResults,
   updateQuiz,
@@ -29,6 +30,8 @@ router.post(
   requireRole("instructor"),
   createQuiz
 );
+
+router.get("/analytics/overview", protect, requireRole("instructor"), getInstructorAnalytics);
 
 router.get(
   "/my",
