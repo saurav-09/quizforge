@@ -1059,6 +1059,25 @@ export const getQuizResults = async (req, res) => {
           )
         : 0;
 
+    const topicStats = new Map();
+    for (const question of quiz.questions || []) {
+      const topic = question.topic || "General";
+      const stats = topicStats.get(topic) || { topic, questions: 0, correct: 0, answered: 0 };
+      stats.questions += 1;
+      for (const attempt of attempts) {
+        const answer = (attempt.answers || []).find((item) => item.questionId?.toString() === question._id.toString());
+        if (answer?.selectedAnswer !== null && answer?.selectedAnswer !== undefined && answer?.selectedAnswer !== "") {
+          stats.answered += 1;
+          if (answer.isCorrect) stats.correct += 1;
+        }
+      }
+      topicStats.set(topic, stats);
+    }
+    const topicPerformance = [...topicStats.values()].map((item) => ({
+      ...item,
+      accuracy: item.answered ? Number(((item.correct / item.answered) * 100).toFixed(2)) : 0,
+    }));
+
     res.status(200).json({
       success: true,
 
@@ -1084,6 +1103,7 @@ export const getQuizResults = async (req, res) => {
         lowestPercentage: Number(
           lowestPercentage.toFixed(2)
         ),
+        topicPerformance,
       },
 
       results,
