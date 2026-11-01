@@ -62,41 +62,63 @@ export const generateQuizQuestions = async (req, res) => {
     generationRequests.set(userId, recentRequests);
 
     const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        signal: AbortSignal.timeout(45000),
-        method: "POST",
-        headers: {
-          "x-goog-api-key": apiKey,
-          "Content-Type": "application/json",
+    const requestUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    const requestOptions = {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [
+            {
+              text: "You create accurate educational multiple-choice quizzes. Return only a JSON object with a questions array. Each question must have question (string), options (exactly four distinct strings), correctAnswer (exactly one option string), explanation (string), and points (positive integer). Avoid ambiguous questions and ensure the answer is factually correct.",
+            },
+          ],
         },
-        body: JSON.stringify({
-          systemInstruction: {
+        contents: [
+          {
+            role: "user",
             parts: [
               {
-                text: "You create accurate educational multiple-choice quizzes. Return only a JSON object with a questions array. Each question must have question (string), options (exactly four distinct strings), correctAnswer (exactly one option string), explanation (string), and points (positive integer). Avoid ambiguous questions and ensure the answer is factually correct.",
+                text: `Create exactly ${count} ${difficulty}-difficulty multiple-choice questions about: ${topic.trim()}. Keep questions clear and self-contained. Provide four plausible options and a concise explanation for each correct answer. Return JSON as { "questions": [...] }.`,
               },
             ],
           },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `Create exactly ${count} ${difficulty}-difficulty multiple-choice questions about: ${topic.trim()}. Keep questions clear and self-contained. Provide four plausible options and a concise explanation for each correct answer. Return JSON as { "questions": [...] }.`,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 5000,
-            responseMimeType: "application/json",
-          },
-        }),
+        ],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 5000,
+          responseMimeType: "application/json",
+        },
+      }),
+    };
+
+    let response;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        response = await fetch(requestUrl, {
+          ...requestOptions,
+          signal: AbortSignal.timeout(120000),
+        });
+
+        if (response.status !== 503 || attempt === 1) {
+          break;
+        }
+
+        console.warn("Gemini is temporarily overloaded. Retrying once...");
+      } catch (error) {
+        const isTimeout = error.name === "TimeoutError" || error.name === "AbortError";
+        if (!isTimeout || attempt === 1) {
+          throw error;
+        }
+
+        console.warn("Gemini request timed out. Retrying once...");
       }
-    );
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
 
     const payload = await response.json();
 
