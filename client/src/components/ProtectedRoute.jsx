@@ -2,11 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuthContext } from "../context/AuthContext";
 
 function ProtectedRoute({ children, allowedRoles }) {
-  const {
-    isAuthenticated,
-    isLoading,
-    role,
-  } = useAuthContext();
+  const { isAuthenticated, isLoading, role } = useAuthContext();
 
   if (isLoading) {
     return (
@@ -20,12 +16,17 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(role)) {
-    if (role === "instructor") {
-      return <Navigate to="/instructor" replace />;
-    }
+  if (!role || role === "pending") {
+    return <Navigate to="/onboarding" replace />;
+  }
 
-    return <Navigate to="/student" replace />;
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    return (
+      <Navigate
+        to={role === "instructor" ? "/instructor" : "/student"}
+        replace
+      />
+    );
   }
 
   return children;
