@@ -118,8 +118,15 @@ function AppRoutes() {
   />
 </Route>
 
-      {/* Temporary profile route */}
-      <Route path="/profile" element={<Profile />} />
+      {/* Authenticated profile route */}
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
 
       {/* 404 */}
       <Route path="*" element={<div>Page Not Found</div>} />
