@@ -1,8 +1,8 @@
 import {
   BarChart3,
-  FileText,
+  CalendarClock,
   Layers3,
-  QrCode,
+  KeyRound,
   Radio,
   Sparkles,
 } from "lucide-react";
@@ -24,25 +24,25 @@ const features = [
     className: "lg:col-span-1",
   },
   {
-    title: "Generate from material",
+    title: "Schedule assessments",
     description:
-      "Upload your study material and create questions grounded in the content students actually need to learn.",
-    icon: FileText,
+      "Set start times, time limits, attempt rules, and automatic submission for scheduled tests.",
+    icon: CalendarClock,
     featured: true,
     className: "lg:col-span-2 lg:row-span-2",
   },
   {
     title: "Run assessments live",
     description:
-      "Watch participation and progress update in real time while students take the quiz.",
+      "Track active test attempts and review student submissions as they arrive.",
     icon: Radio,
     className: "lg:col-span-1",
   },
   {
     title: "Share anywhere",
     description:
-      "Students can join through a link, access code, or QR code.",
-    icon: QrCode,
+      "Students can browse published practice quizzes or join a scheduled test with an access code.",
+    icon: KeyRound,
     className: "lg:col-span-1",
   },
   {
@@ -166,7 +166,7 @@ function Features() {
           </h2>
 
           <p className="mt-4 text-base leading-7 text-[#94A3B8]">
-            QuizForge connects quiz creation, AI generation, live assessment,
+            QuizForge connects quiz creation, AI generation, timed assessments,
             sharing, and performance analysis in one platform.
           </p>
         </div>
