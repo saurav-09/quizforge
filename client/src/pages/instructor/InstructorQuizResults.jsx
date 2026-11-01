@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/react";
 import {
@@ -21,7 +21,7 @@ function InstructorQuizResults() {
   const [showShareConfirm, setShowShareConfirm] =
     useState(false);
 
-  const fetchResults = async () => {
+  const fetchResults = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -60,11 +60,20 @@ function InstructorQuizResults() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken, quizId]);
 
   useEffect(() => {
     fetchResults();
-  }, [quizId]);
+  }, [fetchResults]);
+
+  useEffect(() => {
+    if (data?.quiz?.status !== "published" || data?.quiz?.quizMode !== "test") {
+      return undefined;
+    }
+
+    const interval = setInterval(fetchResults, 10000);
+    return () => clearInterval(interval);
+  }, [data?.quiz?.status, data?.quiz?.quizMode, fetchResults]);
 
   const shareResults = async () => {
     try {
@@ -243,6 +252,8 @@ function InstructorQuizResults() {
 
   const lowestPercentage =
     Number(analytics.lowestPercentage) || 0;
+  const activeParticipants =
+    Number(analytics.activeParticipants) || 0;
 
   const isTest =
     quiz.quizMode === "test";
@@ -358,14 +369,26 @@ function InstructorQuizResults() {
 
       {/* Analytics */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          Performance Overview
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-text-primary">
+            Performance Overview
+          </h2>
+          {isTest && quiz.status === "published" && (
+            <span className="text-xs text-text-secondary">
+              Active attempts refresh every 10 seconds
+            </span>
+          )}
+        </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard
             label="Total Attempts"
             value={totalAttempts}
+          />
+
+          <StatCard
+            label="In Progress"
+            value={activeParticipants}
           />
 
           <StatCard
