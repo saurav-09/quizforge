@@ -69,7 +69,7 @@ const isEditMode = Boolean(quizId);
         quizData.settings?.attemptsAllowed
       ) || 0;
 
-    if (timeLimit < 1) {
+    if (timeLimit < 0) {
       throw new Error(
         "Time limit must be at least 1 minute."
       );
@@ -330,7 +330,7 @@ state={quizData}
             </p>
 
             <p className="text-sm font-semibold text-text-primary">
-              {quizData.settings.timeLimit} minutes
+              {quizData.settings.timeLimit > 0 ? quizData.settings.timeLimit + " minutes" : "No time limit"}
             </p>
           </div>
 
