@@ -12,7 +12,6 @@ import FinalCTA from "../components/landing/FinalCTA";
 import Footer from "../components/landing/Footer";
 
 import {
-  ease,
   staggerContainer,
   fadeUp,
 } from "../lib/motion";
