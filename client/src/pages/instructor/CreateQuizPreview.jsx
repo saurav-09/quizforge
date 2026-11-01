@@ -85,26 +85,15 @@ const isEditMode = Boolean(quizId);
     let endTime = null;
 
     if (quizData.quizMode === "test") {
-      if (!quizData.startTime) {
-        throw new Error(
-          "Test starting time is required."
-        );
+      if (quizData.startTime) {
+        startTime = new Date(quizData.startTime);
+        if (Number.isNaN(startTime.getTime())) throw new Error("Invalid test starting time.");
       }
-
-      startTime = new Date(
-        quizData.startTime
-      );
-
-      if (Number.isNaN(startTime.getTime())) {
-        throw new Error(
-          "Invalid test starting time."
-        );
+      if (quizData.endTime) {
+        endTime = new Date(quizData.endTime);
+        if (Number.isNaN(endTime.getTime())) throw new Error("Invalid test ending time.");
       }
-
-      endTime = new Date(
-        startTime.getTime() +
-          timeLimit * 60 * 1000
-      );
+      if (startTime && endTime && endTime <= startTime) throw new Error("Test end time must be after its start time.");
     }
 
     const payload = {
