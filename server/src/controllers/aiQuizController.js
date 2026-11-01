@@ -5,12 +5,12 @@ const MAX_GENERATIONS_PER_WINDOW = 10;
 
 export const generateQuizQuestions = async (req, res) => {
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return res.status(503).json({
         success: false,
-        message: "AI quiz generation is not configured. Add OPENAI_API_KEY to the server environment.",
+        message: "AI quiz generation is not configured. Add GEMINI_API_KEY to the server environment.",
       });
     }
 
@@ -61,45 +61,63 @@ export const generateQuizQuestions = async (req, res) => {
     recentRequests.push(now);
     generationRequests.set(userId, recentRequests);
 
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      signal: AbortSignal.timeout(45000),
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.4,
-        max_completion_tokens: 5000,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: "You create accurate educational multiple-choice quizzes. Return only a JSON object with a questions array. Each question must have question (string), options (exactly four distinct strings), correctAnswer (exactly one option string), explanation (string), and points (positive integer). Avoid ambiguous questions and ensure the answer is factually correct.",
+    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        signal: AbortSignal.timeout(45000),
+        method: "POST",
+        headers: {
+          "x-goog-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [
+              {
+                text: "You create accurate educational multiple-choice quizzes. Return only a JSON object with a questions array. Each question must have question (string), options (exactly four distinct strings), correctAnswer (exactly one option string), explanation (string), and points (positive integer). Avoid ambiguous questions and ensure the answer is factually correct.",
+              },
+            ],
           },
-          {
-            role: "user",
-            content: `Create exactly ${count} ${difficulty}-difficulty multiple-choice questions about: ${topic.trim()}. Keep questions clear and self-contained. Provide four plausible options and a concise explanation for each correct answer. Return JSON as { "questions": [...] }.`,
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Create exactly ${count} ${difficulty}-difficulty multiple-choice questions about: ${topic.trim()}. Keep questions clear and self-contained. Provide four plausible options and a concise explanation for each correct answer. Return JSON as { "questions": [...] }.`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 5000,
+            responseMimeType: "application/json",
           },
-        ],
-      }),
-    });
+        }),
+      }
+    );
 
     const payload = await response.json();
 
     if (!response.ok) {
-      console.error("OpenAI quiz generation error:", payload.error?.message || response.statusText);
+      console.error("Gemini quiz generation error:", payload.error?.message || response.statusText);
       return res.status(502).json({
         success: false,
         message: "The AI provider could not generate questions right now. Please try again.",
       });
     }
 
-    const content = payload.choices?.[0]?.message?.content;
+    const content = payload.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text || "")
+      .join("")
+      .trim();
 
     if (!content) {
+      console.error(
+        "Gemini returned no text:",
+        payload.promptFeedback?.blockReason || payload.candidates?.[0]?.finishReason || "No response content"
+      );
       return res.status(502).json({
         success: false,
         message: "The AI provider returned an empty response.",
