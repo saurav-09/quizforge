@@ -31,6 +31,7 @@ export const createQuiz = async (req, res) => {
       assignedRooms = [],
       assignedStudents = [],
       startTime: requestedStartTime,
+      endTime: requestedEndTime,
     } = req.body;
 
     /*
@@ -207,33 +208,21 @@ export const createQuiz = async (req, res) => {
     let quizEndTime = null;
 
     if (quizMode === "test") {
-      if (!requestedStartTime) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Test start time is required",
-        });
+      if (requestedStartTime) {
+        quizStartTime = new Date(requestedStartTime);
+        if (Number.isNaN(quizStartTime.getTime())) {
+          return res.status(400).json({ success: false, message: "Invalid test start time" });
+        }
       }
-
-      quizStartTime =
-        new Date(requestedStartTime);
-
-      if (
-        Number.isNaN(
-          quizStartTime.getTime()
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid start time",
-        });
+      if (requestedEndTime) {
+        quizEndTime = new Date(requestedEndTime);
+        if (Number.isNaN(quizEndTime.getTime())) {
+          return res.status(400).json({ success: false, message: "Invalid test end time" });
+        }
       }
-
-      quizEndTime = new Date(
-        quizStartTime.getTime() +
-          timeLimit * 60 * 1000
-      );
+      if (quizStartTime && quizEndTime && quizEndTime <= quizStartTime) {
+        return res.status(400).json({ success: false, message: "Test end time must be after its start time" });
+      }
     }
 
     /*
@@ -882,26 +871,8 @@ export const publishQuiz = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    if (quizMode === "test") {
-      if (!quiz.startTime) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Test start time is required before publishing",
-        });
-      }
-
-      if (
-        !quiz.endTime ||
-        new Date(quiz.endTime) <=
-          new Date(quiz.startTime)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Test end time is invalid",
-        });
-      }
+    if (quizMode === "test" && quiz.startTime && quiz.endTime && new Date(quiz.endTime) <= new Date(quiz.startTime)) {
+      return res.status(400).json({ success: false, message: "Test end time must be after its start time" });
     }
 
     /*
