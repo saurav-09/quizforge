@@ -484,6 +484,7 @@ export const updateQuiz = async (req, res) => {
       assignedRooms = [],
       assignedStudents = [],
       startTime: requestedStartTime,
+      endTime: requestedEndTime,
     } = req.body;
 
     if (!Array.isArray(assignedRooms) || !Array.isArray(assignedStudents)) {
@@ -649,33 +650,15 @@ export const updateQuiz = async (req, res) => {
     let quizEndTime = null;
 
     if (quizMode === "test") {
-      if (!requestedStartTime) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Test start time is required",
-        });
+      if (requestedStartTime) {
+        quizStartTime = new Date(requestedStartTime);
+        if (Number.isNaN(quizStartTime.getTime())) return res.status(400).json({ success: false, message: "Invalid test start time" });
       }
-
-      quizStartTime =
-        new Date(requestedStartTime);
-
-      if (
-        Number.isNaN(
-          quizStartTime.getTime()
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid start time",
-        });
+      if (requestedEndTime) {
+        quizEndTime = new Date(requestedEndTime);
+        if (Number.isNaN(quizEndTime.getTime())) return res.status(400).json({ success: false, message: "Invalid test end time" });
       }
-
-      quizEndTime = new Date(
-        quizStartTime.getTime() +
-          timeLimit * 60 * 1000
-      );
+      if (quizStartTime && quizEndTime && quizEndTime <= quizStartTime) return res.status(400).json({ success: false, message: "Test end time must be after its start time" });
     }
 
     /*
