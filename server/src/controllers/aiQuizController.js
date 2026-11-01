@@ -1,11 +1,4 @@
-const parseModelJson = (content) => {
-  const cleaned = content
-    .trim()
-    .replace(/^\`\`\`(?:json)?\s*/i, "")
-    .replace(/\s*\`\`\`$/, "");
-
-  return JSON.parse(cleaned);
-};
+const parseModelJson = (content) => JSON.parse(content.trim());
 
 export const generateQuizQuestions = async (req, res) => {
   try {
