@@ -100,7 +100,7 @@ export const createQuiz = async (req, res) => {
      */
 
     const attemptsAllowed =
-      Number(settings?.attemptsAllowed);
+      Number(settings?.attemptsAllowed ?? 1);
 
     if (
       !Number.isInteger(attemptsAllowed) ||
@@ -268,6 +268,9 @@ export const createQuiz = async (req, res) => {
 
       points:
         Number(question.points) || 1,
+      topic: question.topic?.trim() || "General",
+      subtopic: question.subtopic?.trim() || "",
+      difficulty: ["easy", "medium", "hard"].includes(question.difficulty) ? question.difficulty : "medium",
     })
   ),
 
@@ -275,11 +278,12 @@ export const createQuiz = async (req, res) => {
     timeLimit,
     attemptsAllowed,
 
-    shuffleQuestions:
-      Boolean(
-        settings?.shuffleQuestions
-      ),
-
+    shuffleQuestions: Boolean(settings?.shuffleQuestions),
+    shuffleOptions: Boolean(settings?.shuffleOptions),
+    allowBackNavigation: settings?.allowBackNavigation !== false,
+    negativeMarkingEnabled: Boolean(settings?.negativeMarkingEnabled),
+    negativeMarkingPoints: settings?.negativeMarkingEnabled ? Math.max(0, Number(settings?.negativeMarkingPoints) || 0) : 0,
+    unlimitedAttempts: settings?.unlimitedAttempts ?? quizMode === "practice",
     quizMode,
   },
 
