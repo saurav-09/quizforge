@@ -141,11 +141,12 @@ const isEditMode = Boolean(quizId);
         timeLimit,
         attemptsAllowed,
 
-        shuffleQuestions:
-          Boolean(
-            quizData.settings
-              ?.shuffleQuestions
-          ),
+        shuffleQuestions: Boolean(quizData.settings?.shuffleQuestions),
+        shuffleOptions: Boolean(quizData.settings?.shuffleOptions),
+        allowBackNavigation: quizData.settings?.allowBackNavigation !== false,
+        negativeMarkingEnabled: Boolean(quizData.settings?.negativeMarkingEnabled),
+        negativeMarkingPoints: quizData.settings?.negativeMarkingEnabled ? Number(quizData.settings?.negativeMarkingPoints) || 0 : 0,
+        unlimitedAttempts: quizData.settings?.unlimitedAttempts ?? quizData.quizMode === "practice",
 
         quizMode: quizData.quizMode,
       },
