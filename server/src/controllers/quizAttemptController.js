@@ -633,7 +633,8 @@ const isTest =
 
 const resultAvailable =
   !isTest ||
-  quiz.resultsShared === true;
+  quiz.resultsShared === true ||
+  (quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString());
 
 if (
   attempt.status === "submitted" &&
@@ -1301,7 +1302,8 @@ export const getQuizAttemptResult = async (
 
     if (
       isTest &&
-      quiz.resultsShared !== true
+      quiz.resultsShared !== true &&
+      !(quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString())
     ) {
       return res.status(200).json({
         success: true,
@@ -1474,7 +1476,7 @@ export const getMyQuizAttempts = async (
         .populate({
           path: "quiz",
           select:
-            "title description settings quizMode resultsShared",
+            "title description settings quizMode resultsShared resultsReleasedTo",
         })
         .sort({
           submittedAt: -1,
@@ -1535,7 +1537,8 @@ export const getMyQuizAttempts = async (
          */
         const resultAvailable =
           !isTest ||
-          quiz.resultsShared === true;
+          quiz.resultsShared === true ||
+          (quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString());
 
         return {
           attemptId:
