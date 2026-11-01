@@ -1,9 +1,7 @@
 import {
-  BarChart3,
   Brain,
   GraduationCap,
   Monitor,
-  Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
