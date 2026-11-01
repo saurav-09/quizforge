@@ -1458,6 +1458,72 @@ export const getQuizAttemptResult = async (
 |
 */
 
+
+export const getMyPerformanceAnalytics = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+    const attempts = await QuizAttempt.find({ student: studentId, status: "submitted" })
+      .populate({ path: "quiz", select: "title settings questions resultsShared resultsReleasedTo" })
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const released = attempts.filter((attempt) => {
+      const quiz = attempt.quiz;
+      if (!quiz) return false;
+      return quiz.settings?.quizMode !== "test" ||
+        quiz.resultsShared === true ||
+        (quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString());
+    });
+
+    const percentages = released.map((item) => item.percentage || 0);
+    const topicStats = new Map();
+    for (const attempt of released) {
+      const quiz = attempt.quiz;
+      const answerMap = new Map((attempt.answers || []).map((answer) => [answer.questionId.toString(), answer]));
+      for (const question of quiz.questions || []) {
+        const topic = question.topic || "General";
+        const stats = topicStats.get(topic) || { topic, questionsSeen: 0, correct: 0, answered: 0 };
+        stats.questionsSeen += 1;
+        const answer = answerMap.get(question._id.toString());
+        if (answer?.selectedAnswer !== null && answer?.selectedAnswer !== undefined && answer?.selectedAnswer !== "") {
+          stats.answered += 1;
+          if (answer.isCorrect) stats.correct += 1;
+        }
+        topicStats.set(topic, stats);
+      }
+    }
+
+    const topics = [...topicStats.values()].map((item) => ({
+      ...item,
+      accuracy: item.answered ? Number(((item.correct / item.answered) * 100).toFixed(2)) : 0,
+    })).sort((a, b) => a.accuracy - b.accuracy);
+
+    return res.json({
+      success: true,
+      summary: {
+        totalQuizzesAttempted: attempts.length,
+        resultsAvailable: released.length,
+        averageScore: percentages.length ? Number((percentages.reduce((sum, value) => sum + value, 0) / percentages.length).toFixed(2)) : 0,
+        highestScore: percentages.length ? Math.max(...percentages) : 0,
+        lowestScore: percentages.length ? Math.min(...percentages) : 0,
+      },
+      topics,
+      weakTopics: topics.filter((item) => item.answered > 0 && item.accuracy < 60),
+      strongTopics: topics.filter((item) => item.answered > 0 && item.accuracy >= 80),
+      recentHistory: attempts.slice(0, 10).map((attempt) => ({
+        attemptId: attempt._id,
+        title: attempt.quiz?.title || "Quiz unavailable",
+        submittedAt: attempt.submittedAt,
+        resultAvailable: released.some((item) => item._id.toString() === attempt._id.toString()),
+        percentage: released.some((item) => item._id.toString() === attempt._id.toString()) ? attempt.percentage : null,
+      })),
+    });
+  } catch (error) {
+    console.error("Student performance analytics error:", error);
+    return res.status(500).json({ success: false, message: "Unable to load performance analytics" });
+  }
+};
+
 export const getMyQuizAttempts = async (
   req,
   res
