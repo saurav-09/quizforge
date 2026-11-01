@@ -334,6 +334,66 @@ export const createQuiz = async (req, res) => {
   }
 };
 
+
+export const getInstructorAnalytics = async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({ creator: req.user._id })
+      .select("title status settings questions createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+    const quizIds = quizzes.map((quiz) => quiz._id);
+    const attempts = quizIds.length
+      ? await QuizAttempt.find({ quiz: { $in: quizIds }, status: "submitted" })
+          .populate("student", "name")
+          .select("quiz score totalPoints percentage submittedAt")
+          .lean()
+      : [];
+
+    const totalAttempts = attempts.length;
+    const averageScore = totalAttempts
+      ? Number((attempts.reduce((sum, item) => sum + (item.percentage || 0), 0) / totalAttempts).toFixed(2))
+      : 0;
+    const quizPerformance = quizzes.map((quiz) => {
+      const quizAttempts = attempts.filter((attempt) => attempt.quiz.toString() === quiz._id.toString());
+      const average = quizAttempts.length
+        ? Number((quizAttempts.reduce((sum, item) => sum + (item.percentage || 0), 0) / quizAttempts.length).toFixed(2))
+        : 0;
+      return {
+        quizId: quiz._id,
+        title: quiz.title,
+        mode: quiz.settings?.quizMode || "practice",
+        status: quiz.status,
+        totalQuestions: quiz.questions?.length || 0,
+        participants: quizAttempts.length,
+        averagePercentage: average,
+        passed: quizAttempts.filter((item) => item.percentage >= 50).length,
+        needsImprovement: quizAttempts.filter((item) => item.percentage < 50).length,
+      };
+    });
+
+    const activeParticipants = quizIds.length
+      ? await QuizAttempt.countDocuments({ quiz: { $in: quizIds }, status: "in-progress" })
+      : 0;
+
+    return res.json({
+      success: true,
+      overview: {
+        totalQuizzes: quizzes.length,
+        publishedQuizzes: quizzes.filter((quiz) => quiz.status === "published").length,
+        totalAttempts,
+        activeParticipants,
+        averagePercentage: averageScore,
+        passed: attempts.filter((item) => item.percentage >= 50).length,
+        needsImprovement: attempts.filter((item) => item.percentage < 50).length,
+      },
+      quizPerformance,
+    });
+  } catch (error) {
+    console.error("Instructor analytics error:", error);
+    return res.status(500).json({ success: false, message: "Unable to load instructor analytics" });
+  }
+};
+
 export const getMyQuizzes = async (req, res) => {
   try {
     const quizzes = await Quiz.find({
@@ -1057,6 +1117,8 @@ export const getQuizResults = async (req, res) => {
         lowestPercentage: Number(
           lowestPercentage.toFixed(2)
         ),
+        passCount: results.filter((result) => result.percentage >= 50).length,
+        needsImprovementCount: results.filter((result) => result.percentage < 50).length,
         topicPerformance,
       },
 
