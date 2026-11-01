@@ -921,6 +921,63 @@ export const publishQuiz = async (req, res) => {
   }
 };
 
+
+export const getLiveTestMonitor = async (req, res) => {
+  try {
+    const quiz = await Quiz.findOne({
+      _id: req.params.id,
+      creator: req.user._id,
+      "settings.quizMode": "test",
+    }).populate("registeredStudents", "name email");
+
+    if (!quiz) return res.status(404).json({ success: false, message: "Test not found" });
+
+    const attempts = await QuizAttempt.find({ quiz: quiz._id })
+      .populate("student", "name email")
+      .select("student answers status submittedAt submissionType startedAt")
+      .lean();
+
+    const attemptsByStudent = new Map(
+      attempts.filter((item) => item.student?._id).map((item) => [item.student._id.toString(), item])
+    );
+
+    const participants = (quiz.registeredStudents || []).map((student) => {
+      const attempt = attemptsByStudent.get(student._id.toString());
+      const answeredQuestions = (attempt?.answers || []).filter((answer) => answer.selectedAnswer !== null && answer.selectedAnswer !== undefined && answer.selectedAnswer !== "").length;
+      const totalQuestions = quiz.questions.length;
+      let status = "not-started";
+      if (attempt?.status === "submitted") status = attempt.submissionType === "automatic" ? "expired" : "submitted";
+      else if (attempt?.status === "in-progress") status = "in-progress";
+      return {
+        student: { _id: student._id, name: student.name, email: student.email },
+        status,
+        answeredQuestions,
+        totalQuestions,
+        unansweredQuestions: Math.max(0, totalQuestions - answeredQuestions),
+        progressPercentage: totalQuestions ? Math.round((answeredQuestions / totalQuestions) * 100) : 0,
+        startedAt: attempt?.startedAt || null,
+        submittedAt: attempt?.submittedAt || null,
+      };
+    });
+
+    return res.json({
+      success: true,
+      quiz: { _id: quiz._id, title: quiz.title, status: quiz.status, totalQuestions: quiz.questions.length },
+      analytics: {
+        participants: participants.length,
+        notStarted: participants.filter((item) => item.status === "not-started").length,
+        inProgress: participants.filter((item) => item.status === "in-progress").length,
+        submitted: participants.filter((item) => item.status === "submitted").length,
+        expired: participants.filter((item) => item.status === "expired").length,
+      },
+      participants,
+    });
+  } catch (error) {
+    console.error("Live test monitor error:", error);
+    return res.status(500).json({ success: false, message: "Unable to load live test progress" });
+  }
+};
+
 export const getQuizResults = async (req, res) => {
   try {
     const quiz = await Quiz.findOne({
