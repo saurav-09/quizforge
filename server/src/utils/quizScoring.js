@@ -14,7 +14,7 @@ export const calculateQuizScore = (quiz, submittedAnswers) => {
     const isCorrect = selectedAnswer !== null && selectedAnswer === question.correctAnswer;
     const pointsEarned = isCorrect
       ? Number(question.points) || 0
-      : selectedAnswer !== null
+      : selectedAnswer !== null && penalty > 0
         ? -penalty
         : 0;
 
