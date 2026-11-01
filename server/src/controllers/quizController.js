@@ -3,6 +3,7 @@ import QuizAttempt from "../models/QuizAttempt.js";
 import { sendQuizResultEmail } from "../utils/emailService.js";
 import crypto from "crypto";
 import Room from "../models/Room.js";
+import User from "../models/User.js";
 
 const quizModeForAssignment = (settings) => settings?.quizMode || "practice";
 
@@ -256,6 +257,11 @@ export const createQuiz = async (req, res) => {
     const uniqueRoomIds = [...new Set(assignedRooms.map(String))];
     const ownedRoomCount = uniqueRoomIds.length ? await Room.countDocuments({ _id: { $in: uniqueRoomIds }, instructor: req.user._id, isActive: true }) : 0;
     if (ownedRoomCount !== uniqueRoomIds.length) return res.status(403).json({ success: false, message: "You can only assign practice to rooms you own" });
+    const uniqueStudentIds = [...new Set(assignedStudents.map(String))];
+    const validStudentCount = uniqueStudentIds.length
+      ? await User.countDocuments({ _id: { $in: uniqueStudentIds }, role: "student", isActive: true })
+      : 0;
+    if (validStudentCount !== uniqueStudentIds.length) return res.status(400).json({ success: false, message: "Practice can only be assigned to active student accounts" });
 
     const quiz = await Quiz.create({
   title: title.trim(),
@@ -690,6 +696,11 @@ export const updateQuiz = async (req, res) => {
     const uniqueRoomIds = [...new Set(assignedRooms.map(String))];
     const ownedRoomCount = uniqueRoomIds.length ? await Room.countDocuments({ _id: { $in: uniqueRoomIds }, instructor: req.user._id, isActive: true }) : 0;
     if (ownedRoomCount !== uniqueRoomIds.length) return res.status(403).json({ success: false, message: "You can only assign practice to rooms you own" });
+    const uniqueStudentIds = [...new Set(assignedStudents.map(String))];
+    const validStudentCount = uniqueStudentIds.length
+      ? await User.countDocuments({ _id: { $in: uniqueStudentIds }, role: "student", isActive: true })
+      : 0;
+    if (validStudentCount !== uniqueStudentIds.length) return res.status(400).json({ success: false, message: "Practice can only be assigned to active student accounts" });
 
     quiz.title = title.trim();
 
