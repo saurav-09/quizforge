@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Plus, Search, Trash2 } from "lucide-react";
 import { useAuth } from "@clerk/react";
+import { useNavigate } from "react-router-dom";
 
 const emptyForm = { question: "", options: ["", "", "", ""], correctAnswer: "", explanation: "", topic: "", subtopic: "", difficulty: "medium", points: 1 };
 
 function InstructorQuestionBank() {
   const { getToken } = useAuth();
+  const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -89,7 +91,7 @@ function InstructorQuestionBank() {
         <button disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-violet px-4 text-sm font-medium text-white disabled:opacity-50"><Plus size={15} />{saving ? "Saving..." : editingId ? "Update question" : "Save question"}</button>
       </form>
       <section className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold text-text-primary">Saved questions ({filtered.length})</h2><div className="relative"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search question or topic" className="h-9 w-64 rounded-lg border border-border pl-9 pr-3 text-sm" /></div></div>
-        {loading ? <p className="text-sm text-text-secondary">Loading questions...</p> : filtered.length === 0 ? <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">No saved questions found.</p> : filtered.map((item) => <article key={item._id} className="rounded-xl border border-border bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-medium text-text-primary">{item.question}</p><p className="mt-2 text-xs text-text-secondary">{item.topic}{item.subtopic ? ` · ${item.subtopic}` : ""} · {item.difficulty} · {item.points} point(s)</p><p className="mt-1 text-xs text-text-secondary">Correct answer: {item.correctAnswer}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editQuestion(item)} className="text-xs font-medium text-brand-violet hover:underline">Edit</button><button type="button" onClick={() => deleteQuestion(item._id)} aria-label="Delete question" className="text-red-600"><Trash2 size={15} /></button></div></div></article>)}
+        {loading ? <p className="text-sm text-text-secondary">Loading questions...</p> : filtered.length === 0 ? <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">No saved questions found.</p> : filtered.map((item) => <article key={item._id} className="rounded-xl border border-border bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-medium text-text-primary">{item.question}</p><p className="mt-2 text-xs text-text-secondary">{item.topic}{item.subtopic ? ` · ${item.subtopic}` : ""} · {item.difficulty} · {item.points} point(s)</p><p className="mt-1 text-xs text-text-secondary">Correct answer: {item.correctAnswer}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => navigate("/instructor/quizzes/create", { state: { questions: [{ question: item.question, options: item.options, correctAnswer: item.correctAnswer, explanation: item.explanation, topic: item.topic, subtopic: item.subtopic, difficulty: item.difficulty, points: item.points }] } })} className="text-xs font-medium text-brand-violet hover:underline">Use in quiz</button><button type="button" onClick={() => editQuestion(item)} className="text-xs font-medium text-brand-violet hover:underline">Edit</button><button type="button" onClick={() => deleteQuestion(item._id)} aria-label="Delete question" className="text-red-600"><Trash2 size={15} /></button></div></div></article>)}
       </section>
     </div>
   );
