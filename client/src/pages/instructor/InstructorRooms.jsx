@@ -74,7 +74,12 @@ function InstructorRooms() {
 
   const copyCode = async (code) => {
     try { await navigator.clipboard.writeText(code); setNotice("Room code copied."); }
-    catch { setNotice(`Room code: ${code}`); }
+    catch { setNotice("Room code: " + code); }
+  };
+  const copyInviteLink = async (code) => {
+    const link = window.location.origin + "/student/rooms?code=" + encodeURIComponent(code);
+    try { await navigator.clipboard.writeText(link); setNotice("Invitation link copied."); }
+    catch { setNotice(link); }
   };
 
   return (
@@ -96,7 +101,7 @@ function InstructorRooms() {
           <article key={room._id} className="rounded-xl border border-border bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><h3 className="font-semibold text-text-primary">{room.name}</h3><p className="mt-1 text-sm text-text-secondary">{room.description || "No description"}</p><p className="mt-2 text-xs text-text-secondary">{room.members?.length || 0} students</p></div>
-              <div className="flex gap-2"><button type="button" onClick={() => copyCode(room.code)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium"><Copy size={14} />{room.code}</button><button type="button" onClick={() => archiveRoom(room._id)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 px-3 text-xs text-red-600"><Trash2 size={14} />Archive</button></div>
+              <div className="flex gap-2"><button type="button" onClick={() => copyCode(room.code)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium"><Copy size={14} />{room.code}</button><button type="button" onClick={() => copyInviteLink(room.code)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium">Copy invite link</button><button type="button" onClick={() => archiveRoom(room._id)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 px-3 text-xs text-red-600"><Trash2 size={14} />Archive</button></div>
             </div>
             <div className="mt-4 border-t border-border pt-3">
               <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-text-secondary"><Users size={14} /> Members</p>
