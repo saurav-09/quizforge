@@ -681,18 +681,22 @@ export const updateQuiz = async (req, res) => {
         explanation:
           question.explanation?.trim() ||
           "",
-        points:
-          Number(question.points),
+        points: Number(question.points),
+        topic: question.topic?.trim() || "General",
+        subtopic: question.subtopic?.trim() || "",
+        difficulty: ["easy", "medium", "hard"].includes(question.difficulty) ? question.difficulty : "medium",
       })
     );
 
     quiz.settings = {
       timeLimit,
       attemptsAllowed,
-      shuffleQuestions:
-        Boolean(
-          settings?.shuffleQuestions
-        ),
+      shuffleQuestions: Boolean(settings?.shuffleQuestions),
+      shuffleOptions: Boolean(settings?.shuffleOptions),
+      allowBackNavigation: settings?.allowBackNavigation !== false,
+      negativeMarkingEnabled: Boolean(settings?.negativeMarkingEnabled),
+      negativeMarkingPoints: settings?.negativeMarkingEnabled ? Math.max(0, Number(settings?.negativeMarkingPoints) || 0) : 0,
+      unlimitedAttempts: settings?.unlimitedAttempts ?? quizMode === "practice",
       quizMode,
     };
 
