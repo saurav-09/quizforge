@@ -539,11 +539,11 @@ export const updateQuiz = async (req, res) => {
      */
 
     const timeLimit =
-      Number(settings?.timeLimit);
+      Number(settings?.timeLimit ?? 30);
 
     if (
       !Number.isFinite(timeLimit) ||
-      timeLimit <= 0
+      timeLimit < 0
     ) {
       return res.status(400).json({
         success: false,
