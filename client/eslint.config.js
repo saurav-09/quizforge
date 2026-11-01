@@ -13,6 +13,12 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // Async data-loading effects intentionally update local UI state.
+      'react-hooks/set-state-in-effect': 'off',
+      // The context module exports its context hook alongside its provider.
+      'react-refresh/only-export-components': 'off',
+    },
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
