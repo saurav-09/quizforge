@@ -118,15 +118,31 @@ const getSafeQuestions = (
 |--------------------------------------------------------------------------
 */
 
-const buildSafeQuiz = (quiz) => {
+const shuffleItems = (items = []) => {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+  }
+  return shuffled;
+};
+
+const buildSafeQuiz = (quiz, attempt) => {
+  const optionMap = new Map((attempt?.optionOrders || []).map((item) => [item.questionId.toString(), item.options]));
+  const questionMap = new Map((quiz.questions || []).map((item) => [item._id.toString(), item]));
+  let questions = getSafeQuestions(quiz.questions).map((question) => ({
+    ...question,
+    options: optionMap.get(question._id.toString()) || question.options,
+  }));
+  if (attempt?.questionOrder?.length) {
+    const order = new Map(attempt.questionOrder.map((id, index) => [id.toString(), index]));
+    questions.sort((left, right) => (order.get(left._id.toString()) ?? 999999) - (order.get(right._id.toString()) ?? 999999));
+  }
   return {
     _id: quiz._id,
     title: quiz.title,
     description: quiz.description,
-    questions:
-      getSafeQuestions(
-        quiz.questions
-      ),
+    questions,
     settings: quiz.settings,
     startTime: quiz.startTime,
     endTime: quiz.endTime,
@@ -484,14 +500,22 @@ export const startQuiz = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    attempt =
-      await QuizAttempt.create({
-        quiz: quizId,
-        student: studentId,
-        answers: [],
-        startedAt: new Date(),
-        status: "in-progress",
-      });
+    const questionOrder = quiz.settings?.shuffleQuestions
+      ? shuffleItems(quiz.questions.map((question) => question._id))
+      : quiz.questions.map((question) => question._id);
+    const optionOrders = quiz.settings?.shuffleOptions
+      ? quiz.questions.map((question) => ({ questionId: question._id, options: shuffleItems(question.options) }))
+      : [];
+
+    attempt = await QuizAttempt.create({
+      quiz: quizId,
+      student: studentId,
+      answers: [],
+      questionOrder,
+      optionOrders,
+      startedAt: new Date(),
+      status: "in-progress",
+    });
 
     const deadline =
       getAttemptDeadline(
@@ -676,7 +700,7 @@ if (
   answers: safeAnswers,
   result,
   resultAvailable,
-  quiz: buildSafeQuiz(quiz),
+  quiz: buildSafeQuiz(quiz, attempt),
 });
   } catch (error) {
     console.error(
