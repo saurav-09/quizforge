@@ -69,7 +69,7 @@ const isEditMode = Boolean(quizId);
         quizData.settings?.attemptsAllowed
       ) || 0;
 
-    if (timeLimit < 1) {
+    if (timeLimit < 0) {
       throw new Error(
         "Time limit must be at least 1 minute."
       );
@@ -85,26 +85,15 @@ const isEditMode = Boolean(quizId);
     let endTime = null;
 
     if (quizData.quizMode === "test") {
-      if (!quizData.startTime) {
-        throw new Error(
-          "Test starting time is required."
-        );
+      if (quizData.startTime) {
+        startTime = new Date(quizData.startTime);
+        if (Number.isNaN(startTime.getTime())) throw new Error("Invalid test starting time.");
       }
-
-      startTime = new Date(
-        quizData.startTime
-      );
-
-      if (Number.isNaN(startTime.getTime())) {
-        throw new Error(
-          "Invalid test starting time."
-        );
+      if (quizData.endTime) {
+        endTime = new Date(quizData.endTime);
+        if (Number.isNaN(endTime.getTime())) throw new Error("Invalid test ending time.");
       }
-
-      endTime = new Date(
-        startTime.getTime() +
-          timeLimit * 60 * 1000
-      );
+      if (startTime && endTime && endTime <= startTime) throw new Error("Test end time must be after its start time.");
     }
 
     const payload = {
@@ -141,17 +130,20 @@ const isEditMode = Boolean(quizId);
         timeLimit,
         attemptsAllowed,
 
-        shuffleQuestions:
-          Boolean(
-            quizData.settings
-              ?.shuffleQuestions
-          ),
+        shuffleQuestions: Boolean(quizData.settings?.shuffleQuestions),
+        shuffleOptions: Boolean(quizData.settings?.shuffleOptions),
+        allowBackNavigation: quizData.settings?.allowBackNavigation !== false,
+        negativeMarkingEnabled: Boolean(quizData.settings?.negativeMarkingEnabled),
+        negativeMarkingPoints: quizData.settings?.negativeMarkingEnabled ? Number(quizData.settings?.negativeMarkingPoints) || 0 : 0,
+        unlimitedAttempts: quizData.settings?.unlimitedAttempts ?? quizData.quizMode === "practice",
 
         quizMode: quizData.quizMode,
       },
 
       startTime,
       endTime,
+      assignedRooms: quizData.assignedRooms || [],
+      assignedStudents: quizData.assignedStudents || [],
     };
 
     // Create new quiz
@@ -338,7 +330,7 @@ state={quizData}
             </p>
 
             <p className="text-sm font-semibold text-text-primary">
-              {quizData.settings.timeLimit} minutes
+              {quizData.settings.timeLimit > 0 ? quizData.settings.timeLimit + " minutes" : "No time limit"}
             </p>
           </div>
 

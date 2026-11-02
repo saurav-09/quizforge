@@ -27,11 +27,20 @@ const quizId =
 
   const [settings, setSettings] = useState({
     timeLimit: 30,
+    noTimeLimit: false,
     attemptsAllowed: 1,
+    unlimitedAttempts: quizData.quizMode === "practice",
     shuffleQuestions: false,
+    shuffleOptions: false,
+    allowBackNavigation: true,
+    negativeMarkingEnabled: false,
+    negativeMarkingPoints: 0,
   });
 
   const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [rooms, setRooms] = useState([]);
+  const [assignedRooms, setAssignedRooms] = useState([]);
   const [loading, setLoading] = useState(isEditMode);
   const [error, setError] = useState("");
 
@@ -64,13 +73,19 @@ const quizId =
 
         const quiz = data.quiz;
         const existingSettings = quiz.settings || {};
+        setAssignedRooms((quiz.assignedRooms || []).map((room) => String(room._id || room)));
 
         setSettings({
-          timeLimit: existingSettings.timeLimit || 30,
+          timeLimit: existingSettings.timeLimit ?? 30,
+          noTimeLimit: existingSettings.timeLimit === 0,
           attemptsAllowed:
             existingSettings.attemptsAllowed || 1,
-          shuffleQuestions:
-            existingSettings.shuffleQuestions || false,
+          shuffleQuestions: existingSettings.shuffleQuestions || false,
+          shuffleOptions: existingSettings.shuffleOptions || false,
+          allowBackNavigation: existingSettings.allowBackNavigation !== false,
+          negativeMarkingEnabled: existingSettings.negativeMarkingEnabled || false,
+          negativeMarkingPoints: existingSettings.negativeMarkingPoints || 0,
+          unlimitedAttempts: existingSettings.unlimitedAttempts ?? quiz.settings?.quizMode === "practice",
         });
 
         if (quiz.startTime) {
@@ -84,6 +99,10 @@ const quizId =
             .slice(0, 16);
 
           setStartTime(localDateTime);
+        }
+        if (quiz.endTime) {
+          const date = new Date(quiz.endTime);
+          setEndTime(new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
         }
       } catch (error) {
         console.error(
@@ -102,15 +121,29 @@ const quizId =
     fetchQuizSettings();
   }, [quizId]);
 
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const token = await getToken();
+        const response = await fetch("/api/rooms/my", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await response.json();
+        if (response.ok) setRooms(data.rooms || []);
+      } catch (roomError) { console.error("Load rooms error:", roomError); }
+    };
+    fetchRooms();
+  }, [getToken]);
+
+  const toggleRoom = (roomId) => setAssignedRooms((current) => current.includes(roomId) ? current.filter((id) => id !== roomId) : [...current, roomId]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
+    if (name === "noTimeLimit") {
+      setSettings((prev) => ({ ...prev, noTimeLimit: checked, timeLimit: checked ? 0 : 30 }));
+      return;
+    }
     setSettings((prev) => ({
       ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : Number(value),
+      [name]: type === "checkbox" ? checked : Number(value),
     }));
   };
 
@@ -119,19 +152,19 @@ const handleContinue = () => {
     return;
   }
 
-  if (
-    quizData.quizMode === "test" &&
-    !startTime
-  ) {
-    setError(
-      "Please select a test starting time."
-    );
+  if (assignedRooms.length === 0 && !(quizData.assignedStudents || []).length) {
+    setError("Select at least one class for this quiz.");
+    return;
+  }
+
+  if (quizData.quizMode === "test" && startTime && endTime && new Date(endTime) <= new Date(startTime)) {
+    setError("Test end time must be after its start time.");
     return;
   }
 
   if (
-    settings.timeLimit < 1 ||
-    settings.attemptsAllowed < 1
+    (!settings.noTimeLimit && settings.timeLimit < 1) ||
+    (!settings.unlimitedAttempts && settings.attemptsAllowed < 1)
   ) {
     setError(
       "Time limit and attempts allowed must be at least 1."
@@ -156,11 +189,11 @@ const handleContinue = () => {
     {
       state: {
         ...quizData,
-        settings,
-        startTime:
-          quizData.quizMode === "test"
-            ? startTime
-            : null,
+        settings: { ...settings, timeLimit: settings.noTimeLimit ? 0 : settings.timeLimit, unlimitedAttempts: quizData.quizMode === "practice" && settings.unlimitedAttempts },
+        assignedRooms,
+        assignedStudents: quizData.assignedStudents || [],
+        startTime: quizData.quizMode === "test" && startTime ? startTime : null,
+        endTime: quizData.quizMode === "test" && endTime ? endTime : null,
         quizId,
         isEditMode,
       },
@@ -228,6 +261,7 @@ const handleContinue = () => {
               Time limit
             </label>
 
+            <label className="mb-2 flex items-center gap-2 text-xs text-text-secondary"><input name="noTimeLimit" type="checkbox" checked={settings.noTimeLimit} onChange={handleChange} className="h-4 w-4 accent-[#8B5CF6]" /> No time limit</label>
             <div className="relative">
               <Clock3
                 size={16}
@@ -240,7 +274,8 @@ const handleContinue = () => {
                 min="1"
                 value={settings.timeLimit}
                 onChange={handleChange}
-                className="h-10 w-full rounded-lg border border-border pl-9 pr-3 text-sm outline-none focus:border-[#8B5CF6]"
+                disabled={settings.noTimeLimit}
+                className="h-10 w-full rounded-lg border border-border pl-9 pr-3 text-sm outline-none focus:border-[#8B5CF6] disabled:bg-surface disabled:text-text-secondary"
               />
             </div>
 
@@ -250,7 +285,11 @@ const handleContinue = () => {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-primary">
+            <label className="flex items-center gap-2 text-xs font-medium text-text-primary">
+              <input name="unlimitedAttempts" type="checkbox" checked={settings.unlimitedAttempts} onChange={handleChange} disabled={quizData.quizMode === "test"} className="h-4 w-4 accent-[#8B5CF6]" />
+              Unlimited attempts
+            </label>
+            {!settings.unlimitedAttempts && <><label className="mb-1.5 mt-3 block text-xs font-medium text-text-primary">
               Attempts allowed
             </label>
 
@@ -265,7 +304,7 @@ const handleContinue = () => {
 
             <p className="mt-1 text-xs text-text-secondary">
               Maximum attempts per student.
-            </p>
+            </p></>}
           </div>
         </div>
       </div>
@@ -297,10 +336,23 @@ const handleContinue = () => {
               </p>
             </div>
           </label>
-
-         
+          <label className="flex cursor-pointer items-start gap-3">
+            <input name="shuffleOptions" type="checkbox" checked={settings.shuffleOptions} onChange={handleChange} className="mt-0.5 h-4 w-4 accent-[#8B5CF6]" />
+            <span><span className="block text-sm font-medium text-text-primary">Shuffle answer options</span><span className="mt-1 block text-xs text-text-secondary">Randomize option order for each attempt.</span></span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input name="allowBackNavigation" type="checkbox" checked={settings.allowBackNavigation} onChange={handleChange} className="mt-0.5 h-4 w-4 accent-[#8B5CF6]" />
+            <span><span className="block text-sm font-medium text-text-primary">Allow previous-question navigation</span><span className="mt-1 block text-xs text-text-secondary">Students can revisit and change saved answers.</span></span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input name="negativeMarkingEnabled" type="checkbox" checked={settings.negativeMarkingEnabled} onChange={handleChange} className="mt-0.5 h-4 w-4 accent-[#8B5CF6]" />
+            <span><span className="block text-sm font-medium text-text-primary">Enable negative marking</span><span className="mt-1 block text-xs text-text-secondary">Apply a penalty for incorrect answers.</span></span>
+          </label>
+          {settings.negativeMarkingEnabled && <div className="max-w-xs"><label className="mb-1 block text-xs font-medium text-text-primary">Penalty per incorrect answer</label><input name="negativeMarkingPoints" type="number" min="0" step="0.25" value={settings.negativeMarkingPoints} onChange={handleChange} className="h-10 w-full rounded-lg border border-border px-3 text-sm" /></div>}
         </div>
       </div>
+
+      <div className="rounded-xl border border-border bg-white p-4 sm:p-6"><h3 className="text-sm font-semibold text-text-primary">Assign to classes</h3><p className="mt-1 text-xs text-text-secondary">{quizData.quizMode === "test" ? "Students in selected classes can open this test directly. Other students can join using its code or QR." : "Students in selected classes can open this practice quiz directly. No code is required."}</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{rooms.length === 0 ? <p className="text-sm text-text-secondary">Create a class room first to assign quizzes.</p> : rooms.map((room) => <label key={room._id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" checked={assignedRooms.includes(String(room._id))} onChange={() => toggleRoom(String(room._id))} className="h-4 w-4 accent-[#8B5CF6]" /><span className="text-text-primary">{room.name}</span><span className="ml-auto text-xs text-text-secondary">{room.members?.length || 0} students</span></label>)}</div></div>
 
       {/* Test Schedule */}
       {quizData.quizMode === "test" && (
@@ -310,7 +362,7 @@ const handleContinue = () => {
           </h3>
 
           <p className="mt-1 text-sm text-text-secondary">
-            Set when students can start the test.
+            Optionally set when the test opens and when it closes. Leave blank to make it available immediately with no closing time.
           </p>
 
           <div className="mt-5">
@@ -327,9 +379,12 @@ const handleContinue = () => {
               className="h-10 w-full rounded-lg border border-border px-3 text-sm outline-none focus:border-[#8B5CF6] sm:max-w-sm"
             />
 
-            <p className="mt-1 text-xs text-text-secondary">
-              The test will automatically end after the selected time limit.
-            </p>
+            <p className="mt-1 text-xs text-text-secondary">Leave blank to allow students to start immediately.</p>
+          </div>
+          <div className="mt-4">
+            <label className="mb-1.5 block text-xs font-medium text-text-primary">Availability end (optional)</label>
+            <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="h-10 w-full rounded-lg border border-border px-3 text-sm outline-none focus:border-[#8B5CF6] sm:max-w-sm" />
+            <p className="mt-1 text-xs text-text-secondary">Students cannot start after this time; active attempts also expire at the deadline.</p>
           </div>
         </div>
       )}

@@ -517,6 +517,7 @@ function StudentQuizAttempt() {
    * Previous question.
    */
   const goToPrevious = () => {
+    if (quiz?.settings?.allowBackNavigation === false) return;
     if (currentQuestion > 0) {
       setCurrentQuestion(
         (current) => current - 1
@@ -913,6 +914,7 @@ function StudentQuizAttempt() {
           onClick={goToPrevious}
           disabled={
             currentQuestion === 0 ||
+            quiz?.settings?.allowBackNavigation === false ||
             submitting
           }
           className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-white px-4 py-2.5 text-sm font-semibold text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"

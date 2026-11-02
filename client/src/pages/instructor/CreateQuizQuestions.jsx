@@ -14,6 +14,9 @@ const createQuestion = () => ({
   options: ["", "", "", ""],
   correctAnswer: "",
   explanation: "",
+  topic: "General",
+  subtopic: "",
+  difficulty: "medium",
   points: 1,
 });
 
@@ -41,6 +44,8 @@ const isEditMode = Boolean(quizId);
   );
   const [loading, setLoading] = useState(isEditMode);
   const [error, setError] = useState("");
+  const [savedQuestionIds, setSavedQuestionIds] = useState([]);
+  const [savingQuestionIndex, setSavingQuestionIndex] = useState(null);
 
   useEffect(() => {
     if (!quizId) {
@@ -89,6 +94,9 @@ const isEditMode = Boolean(quizId);
                     ].slice(0, 4),
               correctAnswer: question.correctAnswer || "",
               explanation: question.explanation || "",
+              topic: question.topic || "General",
+              subtopic: question.subtopic || "",
+              difficulty: question.difficulty || "medium",
               points: question.points || 1,
             }))
           );
@@ -111,6 +119,26 @@ const isEditMode = Boolean(quizId);
 
     fetchQuizQuestions();
   }, [quizId]);
+
+  const saveToQuestionBank = async (question, index) => {
+    try {
+      setSavingQuestionIndex(index);
+      const token = await getToken();
+      const response = await fetch("/api/question-bank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify(question),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Unable to save question");
+      setSavedQuestionIds((current) => [...current, index]);
+      setError("");
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save question to bank");
+    } finally {
+      setSavingQuestionIndex(null);
+    }
+  };
 
   const updateQuestion = (index, field, value) => {
     setQuestions((prev) =>
@@ -292,6 +320,8 @@ state={quizData}
                 Question {questionIndex + 1}
               </h3>
 
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={savingQuestionIndex === questionIndex || savedQuestionIds.includes(questionIndex)} onClick={() => saveToQuestionBank(question, questionIndex)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-brand-violet disabled:opacity-50">{savedQuestionIds.includes(questionIndex) ? "Saved to bank" : savingQuestionIndex === questionIndex ? "Saving..." : "Save to bank"}</button>
               {questions.length > 1 && (
                 <button
                   type="button"
@@ -304,6 +334,7 @@ state={quizData}
                   <Trash2 size={16} />
                 </button>
               )}
+              </div>
             </div>
 
             <div className="mt-5 space-y-4">
@@ -410,6 +441,12 @@ state={quizData}
                   placeholder="Explain the correct answer..."
                   className="w-full resize-none rounded-lg border border-border px-3 py-2.5 text-sm outline-none placeholder:text-text-secondary focus:border-[#8B5CF6]"
                 />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div><label className="mb-1.5 block text-xs font-medium text-text-primary">Topic</label><input value={question.topic || "General"} onChange={(e) => updateQuestion(questionIndex, "topic", e.target.value)} maxLength={100} className="h-9 w-full rounded-lg border border-border px-3 text-sm" /></div>
+                <div><label className="mb-1.5 block text-xs font-medium text-text-primary">Subtopic</label><input value={question.subtopic || ""} onChange={(e) => updateQuestion(questionIndex, "subtopic", e.target.value)} maxLength={100} placeholder="Optional" className="h-9 w-full rounded-lg border border-border px-3 text-sm" /></div>
+                <div><label className="mb-1.5 block text-xs font-medium text-text-primary">Difficulty</label><select value={question.difficulty || "medium"} onChange={(e) => updateQuestion(questionIndex, "difficulty", e.target.value)} className="h-9 w-full rounded-lg border border-border px-3 text-sm"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
               </div>
 
               {/* Points */}

@@ -36,7 +36,7 @@ QuizForge is a full-stack quiz and assessment platform with separate student and
 
 - Frontend: React, Vite, Tailwind CSS, React Router, Clerk.
 - Backend: Node.js, Express, Mongoose, MongoDB.
-- AI: OpenAI API (optional; required only for AI question generation).
+- AI: Google Gemini API (optional; required only for AI question generation).
 - Email: Nodemailer with Gmail (optional; required only for email result release).
 
 ## Requirements
@@ -44,7 +44,7 @@ QuizForge is a full-stack quiz and assessment platform with separate student and
 - Node.js 22 recommended.
 - MongoDB database.
 - Clerk application keys.
-- OpenAI API key for AI quiz generation (optional).
+- Gemini API key for AI quiz generation (optional).
 - Gmail app password for result emails (optional).
 
 ## Local development
@@ -58,7 +58,7 @@ npm ci
 cp .env.example .env
 ```
 
-Fill in `MONGODB_URI` and `CLERK_SECRET_KEY`. Add `OPENAI_API_KEY` to enable AI question generation. Add `EMAIL_USER` and `EMAIL_PASSWORD` only if you want to send result emails.
+Fill in `MONGODB_URI` and `CLERK_SECRET_KEY`. Add `GEMINI_API_KEY` to enable AI question generation. `GEMINI_MODEL` is optional and defaults to `gemini-3.8-flash`. Add `EMAIL_USER` and `EMAIL_PASSWORD` only if you want to send result emails.
 
 3. Install and configure the frontend:
 
@@ -110,8 +110,8 @@ Configure these environment variables in the hosting dashboard:
 - `MONGODB_URI`
 - `CLERK_SECRET_KEY`
 - `VITE_CLERK_PUBLISHABLE_KEY` (available at client build time)
-- `OPENAI_API_KEY` (optional)
-- `OPENAI_MODEL` (optional; defaults to `gpt-4o-mini`)
+- `GEMINI_API_KEY` (optional)
+- `GEMINI_MODEL` (optional; defaults to `gemini-3.8-flash`)
 - `EMAIL_USER` and `EMAIL_PASSWORD` (optional)
 
 Use production Clerk keys and the correct production domain in Clerk's allowed origins/redirect settings. Never commit real secrets or environment files.
@@ -141,4 +141,4 @@ GitHub Actions runs these checks for pushes to `main` and `quizforge-completion`
 
 ## Important
 
-AI-generated questions are drafts. Instructors should verify every question and answer before publishing. AI generation will return a configuration error until `OPENAI_API_KEY` is set on the server.
+AI-generated questions are drafts. Instructors should verify every question and answer before publishing. AI generation will return a configuration error until `GEMINI_API_KEY` is set on the server. The Gemini API free tier has usage limits and its data-use terms may differ from paid-tier terms; review Google's current API terms before sending sensitive content.

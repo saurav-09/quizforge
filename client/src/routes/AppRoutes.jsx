@@ -18,6 +18,10 @@ import CreateQuizQuestions from "../pages/instructor/CreateQuizQuestions";
 import CreateQuizSettings from "../pages/instructor/CreateQuizSettings";
 import CreateQuizPreview from "../pages/instructor/CreateQuizPreview";
 import InstructorAttemptResult from "../pages/instructor/InstructorAttemptResult";
+import InstructorRooms from "../pages/instructor/InstructorRooms";
+import InstructorQuestionBank from "../pages/instructor/InstructorQuestionBank";
+import InstructorLiveTestMonitor from "../pages/instructor/InstructorLiveTestMonitor";
+import InstructorAnalytics from "../pages/instructor/InstructorAnalytics";
 
 import StudentDashboard from "../pages/student/StudentDashboard";
 import StudentQuizzes from "../pages/student/StudentQuizzes";
@@ -26,6 +30,8 @@ import StudentQuizAttempt from "../pages/student/StudentQuizAttempt";
 import StudentQuizResult from "../pages/student/StudentQuizResult";
 import StudentResults from "../pages/student/StudentResults";
 import StudentJoinQuiz from "../pages/student/StudentJoinQuiz";
+import StudentRooms from "../pages/student/StudentRooms";
+import StudentPerformance from "../pages/student/StudentPerformance";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -51,6 +57,10 @@ function AppRoutes() {
         }
       >
         <Route index element={<InstructorDashboard />} />
+        <Route path="rooms" element={<InstructorRooms />} />
+        <Route path="question-bank" element={<InstructorQuestionBank />} />
+        <Route path="analytics" element={<InstructorAnalytics />} />
+        <Route path="quizzes/:quizId/monitor" element={<InstructorLiveTestMonitor />} />
         <Route path="results" element={<InstructorResults />} />
         <Route
   path="results/:quizId"
@@ -86,6 +96,8 @@ function AppRoutes() {
   }
 >
   <Route index element={<StudentDashboard />} />
+  <Route path="rooms" element={<StudentRooms />} />
+  <Route path="analytics" element={<StudentPerformance />} />
 
   <Route
     path="quizzes"

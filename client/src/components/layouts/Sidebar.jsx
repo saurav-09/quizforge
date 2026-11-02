@@ -6,6 +6,7 @@ import {
   LogOut,
   Settings,
   Users,
+  Library,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useClerk } from "@clerk/react";
@@ -22,6 +23,8 @@ const instructorNavigation = [
     icon: BookOpen,
     path: "/instructor/quizzes",
   },
+  { label: "Rooms", icon: Users, path: "/instructor/rooms" },
+  { label: "Question Bank", icon: Library, path: "/instructor/question-bank" },
   {
     label: "Live Sessions",
     icon: Users,
@@ -50,6 +53,8 @@ const studentNavigation = [
     icon: BookOpen,
     path: "/student/quizzes",
   },
+  { label: "My Rooms", icon: Users, path: "/student/rooms" },
+  { label: "My Performance", icon: BarChart3, path: "/student/analytics" },
   {
     label: "Join Quiz",
     icon: Users,

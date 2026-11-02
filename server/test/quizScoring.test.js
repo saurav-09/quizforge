@@ -47,3 +47,30 @@ test("does not award points for an incorrect answer", () => {
   assert.equal(result.answers[0].pointsEarned, 0);
   assert.equal(result.score, 0);
 });
+
+
+test("applies configured negative marking to incorrect answers", () => {
+  const result = calculateQuizScore({
+    ...quiz,
+    settings: { negativeMarkingEnabled: true, negativeMarkingPoints: 0.5 },
+  }, [
+    { questionId: "q1", selectedAnswer: "B" },
+    { questionId: "q2", selectedAnswer: "D" },
+  ]);
+
+  assert.equal(result.answers[0].pointsEarned, -0.5);
+  assert.equal(result.answers[1].pointsEarned, 1);
+  assert.equal(result.score, 0.5);
+  assert.equal(result.percentage, 8.33);
+});
+
+test("never returns a negative total score", () => {
+  const result = calculateQuizScore({
+    questions: [{ _id: "q1", correctAnswer: "A", points: 1 }],
+    settings: { negativeMarkingEnabled: true, negativeMarkingPoints: 2 },
+  }, [{ questionId: "q1", selectedAnswer: "B" }]);
+
+  assert.equal(result.answers[0].pointsEarned, -2);
+  assert.equal(result.score, 0);
+  assert.equal(result.percentage, 0);
+});

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Clock3,
+  Copy,
   FileQuestion,
   Pencil,
   Play,
@@ -58,6 +59,16 @@ function InstructorQuizzes() {
   useEffect(() => {
     fetchQuizzes();
   }, []);
+
+  const copyTestInvite = async (accessCode) => {
+    const inviteUrl = `${window.location.origin}/student/quizzes?accessCode=${encodeURIComponent(accessCode)}`;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      window.alert("Test invitation link copied.");
+    } catch {
+      window.prompt("Copy this test invitation link:", inviteUrl);
+    }
+  };
 
   const handlePublish = async (quizId) => {
     try {
@@ -347,6 +358,21 @@ function InstructorQuizzes() {
                   </div>
                 </div>
 
+                {mode === "test" && quiz.status === "published" && quiz.accessCode && (
+                  <div className="mt-4 flex items-center gap-3 rounded-xl border border-border p-3">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/student/quizzes?accessCode=${quiz.accessCode}`)}`}
+                      alt={`QR code to join ${quiz.title}`}
+                      className="h-20 w-20 rounded-md border border-border bg-white p-1"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-text-secondary">Test joining code</p>
+                      <p className="mt-1 text-lg font-bold tracking-widest text-text-primary">{quiz.accessCode}</p>
+                      <button type="button" onClick={() => copyTestInvite(quiz.accessCode)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand-violet hover:underline"><Copy size={13} /> Copy invite link</button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="mt-5 flex gap-2">
                   {/* Publish only for drafts */}
@@ -366,6 +392,8 @@ function InstructorQuizzes() {
                         : "Publish"}
                     </button>
                   )}
+
+                  {mode === "test" && quiz.status === "published" && <Link to={`/instructor/quizzes/${quiz._id}/monitor`} className="inline-flex items-center justify-center rounded-button border border-border px-3 py-2.5 text-xs font-medium text-brand-violet hover:bg-background-elevated">Monitor</Link>}
 
                   {/* Edit only when quiz is not archived */}
                   {!isArchived && (

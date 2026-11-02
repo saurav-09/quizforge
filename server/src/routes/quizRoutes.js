@@ -5,7 +5,8 @@ import {
   getMyQuizzes,
   getQuiz,
   getQuizResults,
-  completeQuiz,
+  getLiveTestMonitor,
+  getInstructorAnalytics,
   shareQuizResults,
   updateQuiz,
   deleteQuiz,
@@ -28,6 +29,8 @@ router.post(
   requireRole("instructor"),
   createQuiz
 );
+
+router.get("/analytics/overview", protect, requireRole("instructor"), getInstructorAnalytics);
 
 router.get(
   "/my",
@@ -64,17 +67,17 @@ router.get(
 );
 
 router.get(
+  "/:id/monitor",
+  protect,
+  requireRole("instructor"),
+  getLiveTestMonitor
+);
+
+router.get(
   "/:id/results",
   protect,
   requireRole("instructor"),
   getQuizResults
-);
-
-router.patch(
-  "/:id/complete",
-  protect,
-  requireRole("instructor"),
-  completeQuiz
 );
 
 router.post(

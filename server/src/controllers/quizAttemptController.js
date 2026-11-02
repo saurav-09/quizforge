@@ -1,5 +1,6 @@
 import Quiz from "../models/Quiz.js";
 import QuizAttempt from "../models/QuizAttempt.js";
+import Room from "../models/Room.js";
 import { calculateQuizScore } from "../utils/quizScoring.js";
 
 /*
@@ -117,15 +118,30 @@ const getSafeQuestions = (
 |--------------------------------------------------------------------------
 */
 
-const buildSafeQuiz = (quiz) => {
+const shuffleItems = (items = []) => {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+  }
+  return shuffled;
+};
+
+const buildSafeQuiz = (quiz, attempt) => {
+  const optionMap = new Map((attempt?.optionOrders || []).map((item) => [item.questionId.toString(), item.options]));
+  let questions = getSafeQuestions(quiz.questions).map((question) => ({
+    ...question,
+    options: optionMap.get(question._id.toString()) || question.options,
+  }));
+  if (attempt?.questionOrder?.length) {
+    const order = new Map(attempt.questionOrder.map((id, index) => [id.toString(), index]));
+    questions.sort((left, right) => (order.get(left._id.toString()) ?? 999999) - (order.get(right._id.toString()) ?? 999999));
+  }
   return {
     _id: quiz._id,
     title: quiz.title,
     description: quiz.description,
-    questions:
-      getSafeQuestions(
-        quiz.questions
-      ),
+    questions,
     settings: quiz.settings,
     startTime: quiz.startTime,
     endTime: quiz.endTime,
@@ -321,10 +337,15 @@ export const startQuiz = async (req, res) => {
      */
 
     if (quiz.status !== "published") {
-      return res.status(400).json({
-        success: false,
-        message: "This quiz is not available",
-      });
+      return res.status(400).json({ success: false, message: "This quiz is not available" });
+    }
+
+    const assignedDirectly = (quiz.assignedStudents || []).some((id) => id.toString() === studentId.toString());
+    const roomMembership = (quiz.assignedRooms || []).length > 0 && await Room.exists({ _id: { $in: quiz.assignedRooms }, members: studentId, isActive: true });
+    const alreadyRegistered = (quiz.registeredStudents || []).some((id) => id.toString() === studentId.toString());
+    const isAssigned = assignedDirectly || Boolean(roomMembership);
+    if (quiz.settings?.quizMode === "practice" && !isAssigned) {
+      return res.status(403).json({ success: false, message: "This practice quiz has not been assigned to you" });
     }
 
     /*
@@ -336,23 +357,11 @@ export const startQuiz = async (req, res) => {
      * Test quizzes require the correct access code.
      */
 
-    if (quiz.settings?.quizMode === "test") {
-      if (!accessCode?.trim()) {
-        return res.status(403).json({
-          success: false,
-          message: "Access code is required to start this test",
-        });
+    if (quiz.settings?.quizMode === "test" && !isAssigned && !alreadyRegistered) {
+      if (!accessCode?.trim() || accessCode.trim().toUpperCase() !== quiz.accessCode?.toUpperCase()) {
+        return res.status(403).json({ success: false, message: "Join this test using its valid access code or QR code first" });
       }
-
-      if (
-        accessCode.trim().toUpperCase() !==
-        quiz.accessCode?.toUpperCase()
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: "Invalid access code",
-        });
-      }
+      await Quiz.updateOne({ _id: quiz._id }, { $addToSet: { registeredStudents: studentId } });
     }
 
     const now = new Date();
@@ -455,7 +464,7 @@ export const startQuiz = async (req, res) => {
           ),
 
         quiz:
-          buildSafeQuiz(quiz),
+          buildSafeQuiz(quiz, attempt),
       });
     }
 
@@ -465,21 +474,13 @@ export const startQuiz = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    const maxAttempts =
-      Number(
-        quiz.settings?.attemptsAllowed
-      ) || 1;
+    const maxAttempts = Number(quiz.settings?.attemptsAllowed) || 1;
+    const unlimitedAttempts = quiz.settings?.quizMode === "practice" && quiz.settings?.unlimitedAttempts === true;
+    const attemptCount = unlimitedAttempts ? 0 : await QuizAttempt.countDocuments({
+      quiz: quizId, student: studentId, status: "submitted",
+    });
 
-    const attemptCount =
-      await QuizAttempt.countDocuments({
-        quiz: quizId,
-        student: studentId,
-        status: "submitted",
-      });
-
-    if (
-      attemptCount >= maxAttempts
-    ) {
+    if (!unlimitedAttempts && attemptCount >= maxAttempts) {
       return res.status(400).json({
         success: false,
         message:
@@ -493,14 +494,22 @@ export const startQuiz = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    attempt =
-      await QuizAttempt.create({
-        quiz: quizId,
-        student: studentId,
-        answers: [],
-        startedAt: new Date(),
-        status: "in-progress",
-      });
+    const questionOrder = quiz.settings?.shuffleQuestions
+      ? shuffleItems(quiz.questions.map((question) => question._id))
+      : quiz.questions.map((question) => question._id);
+    const optionOrders = quiz.settings?.shuffleOptions
+      ? quiz.questions.map((question) => ({ questionId: question._id, options: shuffleItems(question.options) }))
+      : [];
+
+    attempt = await QuizAttempt.create({
+      quiz: quizId,
+      student: studentId,
+      answers: [],
+      questionOrder,
+      optionOrders,
+      startedAt: new Date(),
+      status: "in-progress",
+    });
 
     const deadline =
       getAttemptDeadline(
@@ -528,7 +537,7 @@ export const startQuiz = async (req, res) => {
       answers: {},
 
       quiz:
-        buildSafeQuiz(quiz),
+        buildSafeQuiz(quiz, attempt),
     });
   } catch (error) {
     console.error(
@@ -642,7 +651,8 @@ const isTest =
 
 const resultAvailable =
   !isTest ||
-  quiz.resultsShared === true;
+  quiz.resultsShared === true ||
+  (quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString());
 
 if (
   attempt.status === "submitted" &&
@@ -684,7 +694,7 @@ if (
   answers: safeAnswers,
   result,
   resultAvailable,
-  quiz: buildSafeQuiz(quiz),
+  quiz: buildSafeQuiz(quiz, attempt),
 });
   } catch (error) {
     console.error(
@@ -1310,7 +1320,8 @@ export const getQuizAttemptResult = async (
 
     if (
       isTest &&
-      quiz.resultsShared !== true
+      quiz.resultsShared !== true &&
+      !(quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString())
     ) {
       return res.status(200).json({
         success: true,
@@ -1465,6 +1476,72 @@ export const getQuizAttemptResult = async (
 |
 */
 
+
+export const getMyPerformanceAnalytics = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+    const attempts = await QuizAttempt.find({ student: studentId, status: "submitted" })
+      .populate({ path: "quiz", select: "title settings questions resultsShared resultsReleasedTo" })
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const released = attempts.filter((attempt) => {
+      const quiz = attempt.quiz;
+      if (!quiz) return false;
+      return quiz.settings?.quizMode !== "test" ||
+        quiz.resultsShared === true ||
+        (quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString());
+    });
+
+    const percentages = released.map((item) => item.percentage || 0);
+    const topicStats = new Map();
+    for (const attempt of released) {
+      const quiz = attempt.quiz;
+      const answerMap = new Map((attempt.answers || []).map((answer) => [answer.questionId.toString(), answer]));
+      for (const question of quiz.questions || []) {
+        const topic = question.topic || "General";
+        const stats = topicStats.get(topic) || { topic, questionsSeen: 0, correct: 0, answered: 0 };
+        stats.questionsSeen += 1;
+        const answer = answerMap.get(question._id.toString());
+        if (answer?.selectedAnswer !== null && answer?.selectedAnswer !== undefined && answer?.selectedAnswer !== "") {
+          stats.answered += 1;
+          if (answer.isCorrect) stats.correct += 1;
+        }
+        topicStats.set(topic, stats);
+      }
+    }
+
+    const topics = [...topicStats.values()].map((item) => ({
+      ...item,
+      accuracy: item.answered ? Number(((item.correct / item.answered) * 100).toFixed(2)) : 0,
+    })).sort((a, b) => a.accuracy - b.accuracy);
+
+    return res.json({
+      success: true,
+      summary: {
+        totalQuizzesAttempted: attempts.length,
+        resultsAvailable: released.length,
+        averageScore: percentages.length ? Number((percentages.reduce((sum, value) => sum + value, 0) / percentages.length).toFixed(2)) : 0,
+        highestScore: percentages.length ? Math.max(...percentages) : 0,
+        lowestScore: percentages.length ? Math.min(...percentages) : 0,
+      },
+      topics,
+      weakTopics: topics.filter((item) => item.answered > 0 && item.accuracy < 60),
+      strongTopics: topics.filter((item) => item.answered > 0 && item.accuracy >= 80),
+      recentHistory: attempts.slice(0, 10).map((attempt) => ({
+        attemptId: attempt._id,
+        title: attempt.quiz?.title || "Quiz unavailable",
+        submittedAt: attempt.submittedAt,
+        resultAvailable: released.some((item) => item._id.toString() === attempt._id.toString()),
+        percentage: released.some((item) => item._id.toString() === attempt._id.toString()) ? attempt.percentage : null,
+      })),
+    });
+  } catch (error) {
+    console.error("Student performance analytics error:", error);
+    return res.status(500).json({ success: false, message: "Unable to load performance analytics" });
+  }
+};
+
 export const getMyQuizAttempts = async (
   req,
   res
@@ -1483,7 +1560,7 @@ export const getMyQuizAttempts = async (
         .populate({
           path: "quiz",
           select:
-            "title description settings quizMode resultsShared",
+            "title description settings quizMode resultsShared resultsReleasedTo",
         })
         .sort({
           submittedAt: -1,
@@ -1544,7 +1621,8 @@ export const getMyQuizAttempts = async (
          */
         const resultAvailable =
           !isTest ||
-          quiz.resultsShared === true;
+          quiz.resultsShared === true ||
+          (quiz.resultsReleasedTo || []).some((id) => id.toString() === studentId.toString());
 
         return {
           attemptId:

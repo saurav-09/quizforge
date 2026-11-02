@@ -20,6 +20,7 @@ function InstructorQuizResults() {
   const [shareError, setShareError] = useState("");
   const [showShareConfirm, setShowShareConfirm] =
     useState(false);
+  const [selectedStudents, setSelectedStudents] = useState([]);
 
   const fetchResults = useCallback(async (silent = false) => {
     try {
@@ -88,8 +89,10 @@ function InstructorQuizResults() {
         {
           method: "POST",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify(selectedStudents.length ? { studentIds: selectedStudents } : {}),
         }
       );
 
@@ -102,9 +105,9 @@ function InstructorQuizResults() {
         );
       }
 
-      if (result.resultsShared) {
+      if (result.success) {
         setShareMessage(
-          `Results shared successfully. ${
+          `Results released to ${result.releasedCount || 0} student(s). ${
             result.sent || 0
           } email${
             result.sent === 1 ? "" : "s"
@@ -116,7 +119,7 @@ function InstructorQuizResults() {
         );
       } else {
         setShareError(
-          `No result emails were sent. ${
+          `Results could not be released. ${
             result.failed || 0
           } email${
             result.failed === 1 ? "" : "s"
@@ -125,6 +128,7 @@ function InstructorQuizResults() {
       }
 
       setShowShareConfirm(false);
+      setSelectedStudents([]);
 
       await fetchResults();
     } catch (error) {
@@ -264,6 +268,8 @@ function InstructorQuizResults() {
     !quiz.resultsShared &&
     results.length > 0 &&
     !sharing;
+  const topicPerformance = analytics.topicPerformance || [];
+  const toggleStudent = (studentId) => setSelectedStudents((current) => current.includes(studentId) ? current.filter((id) => id !== studentId) : [...current, studentId]);
 
   return (
     <div className="space-y-8">
@@ -321,8 +327,9 @@ function InstructorQuizResults() {
               ) : quiz.status !== "completed" ? (
                 <div className="rounded-xl border border-border bg-background-elevated px-5 py-3">
                   <p className="text-sm text-text-secondary">
-                    Complete the test before sharing
-                    results.
+                    {quiz.endTime
+                      ? "Results will be available automatically when the scheduled test ends."
+                      : "This test has no scheduled end time. It will close automatically after all assigned and registered students submit."}
                   </p>
                 </div>
               ) : results.length === 0 ? (
@@ -408,6 +415,8 @@ function InstructorQuizResults() {
         </div>
       </div>
 
+      {topicPerformance.length > 0 && <section className="rounded-card border border-border bg-surface p-6"><h2 className="text-lg font-semibold text-text-primary">Topic-wise class performance</h2><div className="mt-4 space-y-4">{topicPerformance.map((topic) => <div key={topic.topic}><div className="flex justify-between gap-3 text-sm"><span className="font-medium text-text-primary">{topic.topic}</span><span className="text-text-secondary">{topic.accuracy}% ({topic.correct}/{topic.answered})</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-background-elevated"><div className="h-full rounded-full bg-brand-violet" style={{ width: topic.accuracy + "%" }} /></div></div>)}</div></section>}
+
       {/* Quiz Information */}
       <div className="rounded-card border border-border bg-surface p-6">
         <h2 className="text-lg font-semibold text-text-primary">
@@ -449,8 +458,7 @@ function InstructorQuizResults() {
           </h2>
 
           <p className="mt-1 text-sm text-text-secondary">
-            Select a student to view their complete
-            attempt.
+            Select a student to view their complete attempt. For a test, select students below before releasing results; leave all unchecked to release to everyone.
           </p>
         </div>
 
@@ -475,6 +483,7 @@ function InstructorQuizResults() {
                 <table className="w-full min-w-[800px]">
                   <thead>
                     <tr className="border-b border-border bg-background-elevated">
+                      <th className="px-5 py-4 text-left text-xs font-medium uppercase tracking-wide text-text-muted">Release</th>
                       <th className="px-5 py-4 text-left text-xs font-medium uppercase tracking-wide text-text-muted">
                         Student
                       </th>
@@ -507,6 +516,7 @@ function InstructorQuizResults() {
                         key={result.attemptId}
                         className="border-b border-border last:border-b-0"
                       >
+                        <td className="px-5 py-4">{isTest && <input type="checkbox" aria-label={"Select " + result.student?.name + " for result release"} checked={selectedStudents.includes(String(result.student?._id))} onChange={() => toggleStudent(String(result.student?._id))} />}</td>
                         <td className="px-5 py-4">
                           <p className="text-sm font-medium text-text-primary">
                             {result.student?.name ||
@@ -566,6 +576,7 @@ function InstructorQuizResults() {
                   className="rounded-card border border-border bg-surface p-5"
                 >
                   <div className="flex items-start justify-between gap-4">
+                    {isTest && <input type="checkbox" aria-label={"Select " + result.student?.name + " for result release"} checked={selectedStudents.includes(String(result.student?._id))} onChange={() => toggleStudent(String(result.student?._id))} />}
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-semibold text-text-primary">
                         {result.student?.name ||

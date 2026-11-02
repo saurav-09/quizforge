@@ -13,11 +13,11 @@ function CreateQuiz() {
 
   const isEditMode = Boolean(quizId);
 
-  const [quizMode, setQuizMode] = useState("practice");
+  const [quizMode, setQuizMode] = useState(location.state?.quizMode || "practice");
 
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
+    title: location.state?.title || "",
+    description: location.state?.description || "",
   });
 
   const [aiTopic, setAiTopic] = useState("");
@@ -131,7 +131,7 @@ function CreateQuiz() {
           title,
           description,
           quizMode,
-          questions: data.questions,
+          questions: data.questions.map((question) => ({ ...question, topic: question.topic || aiTopic.trim(), difficulty: question.difficulty || aiDifficulty })),
           isEditMode: false,
         },
       });
@@ -166,6 +166,7 @@ function CreateQuiz() {
         quizMode,
         quizId,
         isEditMode,
+        questions: location.state?.questions || [],
       },
     }
   );

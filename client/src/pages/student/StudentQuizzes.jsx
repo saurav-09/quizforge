@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
+import { Html5QrcodeScanner } from "html5-qrcode";
 import {
   Clock3,
   FileQuestion,
   Play,
   RefreshCw,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/react";
 
 function StudentQuizzes() {
   const { getToken } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
+  const [accessCode, setAccessCode] = useState(() => new URLSearchParams(location.search).get("accessCode") || "");
+  const [joining, setJoining] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [joinError, setJoinError] = useState("");
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -61,6 +68,76 @@ function StudentQuizzes() {
   useEffect(() => {
     fetchQuizzes();
   }, []);
+
+  useEffect(() => {
+    const codeFromLink = new URLSearchParams(location.search).get("accessCode");
+    if (codeFromLink) {
+      setAccessCode(codeFromLink.toUpperCase());
+      joinTest(codeFromLink);
+    }
+  }, [location.search]);
+
+  const joinTest = async (providedCode = accessCode) => {
+    const normalizedCode = String(providedCode || "").trim().toUpperCase();
+    if (!normalizedCode) return;
+    try {
+      setJoining(true);
+      setJoinError("");
+      const token = await getToken();
+      const response = await fetch("/api/quizzes/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ accessCode: normalizedCode }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Unable to join this test");
+      if (!data.quiz?._id) throw new Error("Test joined, but its details could not be loaded.");
+      navigate(`/student/quizzes/${data.quiz._id}`);
+    } catch (error) {
+      setJoinError(error.message || "Unable to join this test");
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showScanner) return undefined;
+
+    const scanner = new Html5QrcodeScanner(
+      "quizforge-qr-reader",
+      {
+        fps: 10,
+        qrbox: { width: 220, height: 220 },
+        rememberLastUsedCamera: true,
+      },
+      false
+    );
+
+    scanner.render(
+      (decodedText) => {
+        let code = decodedText.trim();
+        try {
+          const scannedUrl = new URL(code);
+          code = scannedUrl.searchParams.get("accessCode") || code;
+        } catch {
+          // The QR may contain the code directly instead of an invitation URL.
+        }
+
+        if (/^[A-Z0-9]{8}$/i.test(code)) {
+          setAccessCode(code.toUpperCase());
+          setShowScanner(false);
+          window.location.href = `/student/quizzes?accessCode=${encodeURIComponent(code.toUpperCase())}`;
+        } else {
+          setJoinError("This QR code is not a valid QuizForge test invitation.");
+        }
+      },
+      () => {}
+    );
+
+    return () => {
+      scanner.clear().catch(() => {});
+    };
+  }, [showScanner]);
 
   const formatDateTime = (date) => {
     if (!date) {
@@ -122,6 +199,24 @@ function StudentQuizzes() {
         <p className="mt-1 text-sm text-text-secondary">
           Choose a quiz and test your knowledge.
         </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface p-4">
+        <form onSubmit={(event) => { event.preventDefault(); joinTest(); }} className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex-1">
+            <label htmlFor="test-access-code" className="mb-1.5 block text-sm font-medium text-text-primary">Join a test with code</label>
+            <input id="test-access-code" value={accessCode} onChange={(event) => setAccessCode(event.target.value.toUpperCase())} maxLength={8} required placeholder="Enter test code" className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm uppercase tracking-widest" />
+            {joinError && <p role="alert" className="mt-1.5 text-xs text-red-600">{joinError}</p>}
+          </div>
+          <button type="submit" disabled={joining || accessCode.trim().length !== 8} className="h-10 self-end rounded-button bg-brand-violet px-5 text-sm font-medium text-white disabled:opacity-50">{joining ? "Joining..." : "Join test"}</button>
+          <button type="button" onClick={() => { setJoinError(""); setShowScanner((value) => !value); }} className="h-10 self-end rounded-button border border-border px-5 text-sm font-medium text-text-primary hover:bg-background-elevated">{showScanner ? "Close scanner" : "Scan QR"}</button>
+        </form>
+        {showScanner && (
+          <div className="mt-4">
+            <p className="mb-2 text-sm text-text-secondary">Allow camera access and point it at the QuizForge test QR code.</p>
+            <div id="quizforge-qr-reader" className="mx-auto max-w-md overflow-hidden rounded-lg" />
+          </div>
+        )}
       </div>
 
       {/* Empty State */}

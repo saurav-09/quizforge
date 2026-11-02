@@ -29,6 +29,10 @@ const questionSchema = new mongoose.Schema(
       trim: true,
     },
 
+    topic: { type: String, default: "General", trim: true, maxlength: 100 },
+    subtopic: { type: String, default: "", trim: true, maxlength: 100 },
+    difficulty: { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+
     points: {
       type: Number,
       default: 1,
@@ -64,11 +68,15 @@ const quizSchema = new mongoose.Schema(
       default: [],
     },
 
+    assignedRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: "Room" }],
+    assignedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    registeredStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
     settings: {
       timeLimit: {
         type: Number,
         default: 30,
-        min: 1,
+        min: 0,
       },
 
       attemptsAllowed: {
@@ -77,10 +85,12 @@ const quizSchema = new mongoose.Schema(
         min: 1,
       },
 
-      shuffleQuestions: {
-        type: Boolean,
-        default: false,
-      },
+      shuffleQuestions: { type: Boolean, default: false },
+      shuffleOptions: { type: Boolean, default: false },
+      allowBackNavigation: { type: Boolean, default: true },
+      negativeMarkingEnabled: { type: Boolean, default: false },
+      negativeMarkingPoints: { type: Number, default: 0, min: 0 },
+      unlimitedAttempts: { type: Boolean, default: false },
 
       quizMode: {
         type: String,
@@ -111,6 +121,8 @@ const quizSchema = new mongoose.Schema(
       default: null,
     },
 
+    resultsReleasedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
     accessCode: {
       type: String,
       unique: true,
@@ -120,7 +132,7 @@ const quizSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["draft", "published", "archived"],
+      enum: ["draft", "published", "completed", "archived"],
       default: "draft",
       index: true,
     },

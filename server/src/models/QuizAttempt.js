@@ -46,6 +46,12 @@ const quizAttemptSchema = new mongoose.Schema(
       default: [],
     },
 
+    questionOrder: [{ type: mongoose.Schema.Types.ObjectId }],
+    optionOrders: [{
+      questionId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      options: { type: [String], default: [] },
+    }],
+
     score: {
       type: Number,
       default: 0,
