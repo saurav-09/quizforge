@@ -132,7 +132,7 @@ const quizSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["draft", "published", "archived"],
+      enum: ["draft", "published", "completed", "archived"],
       default: "draft",
       index: true,
     },
