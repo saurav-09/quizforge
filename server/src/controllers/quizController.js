@@ -1255,60 +1255,6 @@ export const getQuizAttemptResultForInstructor = async (req, res) => {
   }
 };
 
-export const completeQuiz = async (req, res) => {
-  try {
-    const quiz = await Quiz.findOne({
-      _id: req.params.id,
-      creator: req.user._id,
-    });
-
-    if (!quiz) {
-      return res.status(404).json({
-        success: false,
-        message: "Quiz not found",
-      });
-    }
-
-    if (quiz.settings.quizMode !== "test") {
-      return res.status(400).json({
-        success: false,
-        message: "Only test quizzes can be completed this way",
-      });
-    }
-
-    if (quiz.status === "completed") {
-      return res.status(400).json({
-        success: false,
-        message: "Quiz is already completed",
-      });
-    }
-
-    if (quiz.endTime && new Date() < quiz.endTime) {
-      return res.status(400).json({
-        success: false,
-        message: "Test time has not ended yet",
-      });
-    }
-
-    quiz.status = "completed";
-
-    await quiz.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Test completed successfully",
-      quiz,
-    });
-  } catch (error) {
-    console.error("Complete quiz error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 export const shareQuizResults = async (req, res) => {
   try {
     const quiz = await Quiz.findOne({ _id: req.params.id, creator: req.user._id });
