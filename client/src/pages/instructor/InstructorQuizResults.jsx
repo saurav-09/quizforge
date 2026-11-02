@@ -327,8 +327,9 @@ function InstructorQuizResults() {
               ) : quiz.status !== "completed" ? (
                 <div className="rounded-xl border border-border bg-background-elevated px-5 py-3">
                   <p className="text-sm text-text-secondary">
-                    Complete the test before sharing
-                    results.
+                    {quiz.endTime
+                      ? "Results will be available automatically when the scheduled test ends."
+                      : "This test has no scheduled end time, so it will remain open until it is closed."}
                   </p>
                 </div>
               ) : results.length === 0 ? (
