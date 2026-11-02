@@ -96,28 +96,36 @@ export const generateQuizQuestions = async (req, res) => {
     };
 
     let response;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    const maxAttempts = 4;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
         response = await fetch(requestUrl, {
           ...requestOptions,
           signal: AbortSignal.timeout(120000),
         });
 
-        if (response.status !== 503 || attempt === 1) {
+        if (response.status !== 503 || attempt === maxAttempts - 1) {
           break;
         }
 
-        console.warn("Gemini is temporarily overloaded. Retrying once...");
+        console.warn(
+          `Gemini is temporarily overloaded. Retrying in ${2 ** attempt}s (attempt ${attempt + 2}/${maxAttempts})...`
+        );
       } catch (error) {
         const isTimeout = error.name === "TimeoutError" || error.name === "AbortError";
-        if (!isTimeout || attempt === 1) {
+        if (!isTimeout || attempt === maxAttempts - 1) {
           throw error;
         }
 
-        console.warn("Gemini request timed out. Retrying once...");
+        console.warn(
+          `Gemini request timed out. Retrying in ${2 ** attempt}s (attempt ${attempt + 2}/${maxAttempts})...`
+        );
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const backoffMs = 1000 * 2 ** attempt;
+      const jitterMs = Math.floor(Math.random() * 500);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs + jitterMs));
     }
 
     const payload = await response.json();
