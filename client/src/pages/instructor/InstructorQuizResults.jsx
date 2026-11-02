@@ -329,7 +329,7 @@ function InstructorQuizResults() {
                   <p className="text-sm text-text-secondary">
                     {quiz.endTime
                       ? "Results will be available automatically when the scheduled test ends."
-                      : "This test has no scheduled end time, so it will remain open until it is closed."}
+                      : "This test has no scheduled end time. It will close automatically after all assigned and registered students submit."}
                   </p>
                 </div>
               ) : results.length === 0 ? (
