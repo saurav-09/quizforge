@@ -152,8 +152,8 @@ const handleContinue = () => {
     return;
   }
 
-  if (quizData.quizMode === "practice" && assignedRooms.length === 0) {
-    setError("Select at least one room for this practice quiz.");
+  if (assignedRooms.length === 0 && !(quizData.assignedStudents || []).length) {
+    setError("Select at least one class for this quiz.");
     return;
   }
 
@@ -352,7 +352,7 @@ const handleContinue = () => {
         </div>
       </div>
 
-      {quizData.quizMode === "practice" && <div className="rounded-xl border border-border bg-white p-4 sm:p-6"><h3 className="text-sm font-semibold text-text-primary">Assign to rooms</h3><p className="mt-1 text-xs text-text-secondary">Only students in selected rooms can access this practice quiz.</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{rooms.length === 0 ? <p className="text-sm text-text-secondary">Create a room first to assign practice quizzes.</p> : rooms.map((room) => <label key={room._id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" checked={assignedRooms.includes(String(room._id))} onChange={() => toggleRoom(String(room._id))} className="h-4 w-4 accent-[#8B5CF6]" /><span className="text-text-primary">{room.name}</span><span className="ml-auto text-xs text-text-secondary">{room.members?.length || 0} students</span></label>)}</div></div>}
+      <div className="rounded-xl border border-border bg-white p-4 sm:p-6"><h3 className="text-sm font-semibold text-text-primary">Assign to classes</h3><p className="mt-1 text-xs text-text-secondary">{quizData.quizMode === "test" ? "Students in selected classes can open this test directly. Other students can join using its code or QR." : "Students in selected classes can open this practice quiz directly. No code is required."}</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{rooms.length === 0 ? <p className="text-sm text-text-secondary">Create a class room first to assign quizzes.</p> : rooms.map((room) => <label key={room._id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" checked={assignedRooms.includes(String(room._id))} onChange={() => toggleRoom(String(room._id))} className="h-4 w-4 accent-[#8B5CF6]" /><span className="text-text-primary">{room.name}</span><span className="ml-auto text-xs text-text-secondary">{room.members?.length || 0} students</span></label>)}</div></div>
 
       {/* Test Schedule */}
       {quizData.quizMode === "test" && (
