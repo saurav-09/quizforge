@@ -7,7 +7,6 @@ import {
   getQuizResults,
   getLiveTestMonitor,
   getInstructorAnalytics,
-  completeQuiz,
   shareQuizResults,
   updateQuiz,
   deleteQuiz,
@@ -79,13 +78,6 @@ router.get(
   protect,
   requireRole("instructor"),
   getQuizResults
-);
-
-router.patch(
-  "/:id/complete",
-  protect,
-  requireRole("instructor"),
-  completeQuiz
 );
 
 router.post(
