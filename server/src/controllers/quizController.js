@@ -7,19 +7,7 @@ import User from "../models/User.js";
 
 const quizModeForAssignment = (settings) => settings?.quizMode || "practice";
 
-const generateAccessCode = () => {
-  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-  let code = "";
-
-  for (let i = 0; i < 6; i++) {
-    code += characters.charAt(
-      Math.floor(Math.random() * characters.length)
-    );
-  }
-
-  return code;
-};
+const generateAccessCode = () => crypto.randomBytes(4).toString("hex").toUpperCase();
 
 export const createQuiz = async (req, res) => {
   try {
@@ -51,8 +39,8 @@ export const createQuiz = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid practice assignments" });
     }
 
-    if (quizModeForAssignment(settings) === "practice" && assignedRooms.length === 0 && assignedStudents.length === 0) {
-      return res.status(400).json({ success: false, message: "Assign this practice quiz to at least one room or student" });
+    if (assignedRooms.length === 0 && assignedStudents.length === 0) {
+      return res.status(400).json({ success: false, message: "Assign this quiz to at least one class or student" });
     }
 
     /*
@@ -234,7 +222,9 @@ export const createQuiz = async (req, res) => {
     let accessCode;
 
     if (quizMode === "test") {
-      accessCode = generateAccessCode();
+      do {
+        accessCode = generateAccessCode();
+      } while (await Quiz.exists({ accessCode }));
     }
 
     /*
@@ -245,7 +235,7 @@ export const createQuiz = async (req, res) => {
 
     const uniqueRoomIds = [...new Set(assignedRooms.map(String))];
     const ownedRoomCount = uniqueRoomIds.length ? await Room.countDocuments({ _id: { $in: uniqueRoomIds }, instructor: req.user._id, isActive: true }) : 0;
-    if (ownedRoomCount !== uniqueRoomIds.length) return res.status(403).json({ success: false, message: "You can only assign practice to rooms you own" });
+    if (ownedRoomCount !== uniqueRoomIds.length) return res.status(403).json({ success: false, message: "You can only assign quizzes to classes you own" });
     const uniqueStudentIds = [...new Set(assignedStudents.map(String))];
     const validStudentCount = uniqueStudentIds.length
       ? await User.countDocuments({ _id: { $in: uniqueStudentIds }, role: "student", isActive: true })
@@ -457,13 +447,10 @@ export const getQuiz = async (req, res) => {
         });
       }
 
-      if (quiz.settings?.quizMode === "test") {
-        return res.status(403).json({ success: false, message: "Please join this test using the access code" });
-      }
-
       const isAssignedDirectly = (quiz.assignedStudents || []).some((id) => id.toString() === req.user._id.toString());
       const isRoomMember = (quiz.assignedRooms || []).length > 0 && await Room.exists({ _id: { $in: quiz.assignedRooms }, members: req.user._id, isActive: true });
-      if (!isAssignedDirectly && !isRoomMember) return res.status(403).json({ success: false, message: "This practice quiz has not been assigned to you" });
+      const joinedByCode = (quiz.registeredStudents || []).some((id) => id.toString() === req.user._id.toString());
+      if (!isAssignedDirectly && !isRoomMember && !joinedByCode) return res.status(403).json({ success: false, message: "This quiz is not assigned to you. Join the test using its code or QR." });
 
       quiz.questions = quiz.questions.map((question) => ({
         _id: question._id,
@@ -548,7 +535,10 @@ export const updateQuiz = async (req, res) => {
     } = req.body;
 
     if (!Array.isArray(assignedRooms) || !Array.isArray(assignedStudents)) {
-      return res.status(400).json({ success: false, message: "Invalid practice assignments" });
+      return res.status(400).json({ success: false, message: "Invalid quiz assignments" });
+    }
+    if (assignedRooms.length === 0 && assignedStudents.length === 0) {
+      return res.status(400).json({ success: false, message: "Assign this quiz to at least one class or student" });
     }
 
     /*
@@ -727,7 +717,7 @@ export const updateQuiz = async (req, res) => {
 
     const uniqueRoomIds = [...new Set(assignedRooms.map(String))];
     const ownedRoomCount = uniqueRoomIds.length ? await Room.countDocuments({ _id: { $in: uniqueRoomIds }, instructor: req.user._id, isActive: true }) : 0;
-    if (ownedRoomCount !== uniqueRoomIds.length) return res.status(403).json({ success: false, message: "You can only assign practice to rooms you own" });
+    if (ownedRoomCount !== uniqueRoomIds.length) return res.status(403).json({ success: false, message: "You can only assign quizzes to classes you own" });
     const uniqueStudentIds = [...new Set(assignedStudents.map(String))];
     const validStudentCount = uniqueStudentIds.length
       ? await User.countDocuments({ _id: { $in: uniqueStudentIds }, role: "student", isActive: true })
@@ -781,6 +771,12 @@ export const updateQuiz = async (req, res) => {
 
     quiz.startTime = quizStartTime;
     quiz.endTime = quizEndTime;
+    if (quizMode === "test" && !quiz.accessCode) {
+      do {
+        quiz.accessCode = generateAccessCode();
+      } while (await Quiz.exists({ accessCode: quiz.accessCode, _id: { $ne: quiz._id } }));
+    }
+    if (quizMode === "practice") quiz.accessCode = undefined;
 
     await quiz.save();
 
@@ -923,6 +919,13 @@ export const publishQuiz = async (req, res) => {
      * Publish quiz
      * -------------------------------------------------------
      */
+
+    if (quizMode === "test" && !quiz.accessCode) {
+      do {
+        quiz.accessCode = generateAccessCode();
+      } while (await Quiz.exists({ accessCode: quiz.accessCode, _id: { $ne: quiz._id } }));
+    }
+    if (quizMode === "practice") quiz.accessCode = undefined;
 
     quiz.status = "published";
 
@@ -1375,14 +1378,14 @@ export const getAvailableQuizzes = async (req, res) => {
     const roomIds = joinedRooms.map((room) => room._id);
     const quizzes = await Quiz.find({
       status: "published",
-      "settings.quizMode": "practice",
       $or: [
         { assignedRooms: { $in: roomIds } },
         { assignedStudents: req.user._id },
+        { registeredStudents: req.user._id },
       ],
     })
       .select(
-        "title description questions.question questions.options questions.points settings createdAt creator"
+        "title description questions.question questions.options questions.points settings createdAt creator startTime endTime"
       )
       .populate("creator", "name")
       .sort({ createdAt: -1 });
