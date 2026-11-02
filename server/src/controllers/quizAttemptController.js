@@ -340,10 +340,12 @@ export const startQuiz = async (req, res) => {
       return res.status(400).json({ success: false, message: "This quiz is not available" });
     }
 
-    if (quiz.settings?.quizMode === "practice") {
-      const assignedDirectly = (quiz.assignedStudents || []).some((id) => id.toString() === studentId.toString());
-      const roomMembership = (quiz.assignedRooms || []).length > 0 && await Room.exists({ _id: { $in: quiz.assignedRooms }, members: studentId, isActive: true });
-      if (!assignedDirectly && !roomMembership) return res.status(403).json({ success: false, message: "This practice quiz has not been assigned to you" });
+    const assignedDirectly = (quiz.assignedStudents || []).some((id) => id.toString() === studentId.toString());
+    const roomMembership = (quiz.assignedRooms || []).length > 0 && await Room.exists({ _id: { $in: quiz.assignedRooms }, members: studentId, isActive: true });
+    const alreadyRegistered = (quiz.registeredStudents || []).some((id) => id.toString() === studentId.toString());
+    const isAssigned = assignedDirectly || Boolean(roomMembership);
+    if (quiz.settings?.quizMode === "practice" && !isAssigned) {
+      return res.status(403).json({ success: false, message: "This practice quiz has not been assigned to you" });
     }
 
     /*
@@ -355,16 +357,9 @@ export const startQuiz = async (req, res) => {
      * Test quizzes require the correct access code.
      */
 
-    if (quiz.settings?.quizMode === "test") {
-      if (!accessCode?.trim()) {
-        return res.status(403).json({
-          success: false,
-          message: "Access code is required to start this test",
-        });
-      }
-
-      if (accessCode.trim().toUpperCase() !== quiz.accessCode?.toUpperCase()) {
-        return res.status(403).json({ success: false, message: "Invalid access code" });
+    if (quiz.settings?.quizMode === "test" && !isAssigned && !alreadyRegistered) {
+      if (!accessCode?.trim() || accessCode.trim().toUpperCase() !== quiz.accessCode?.toUpperCase()) {
+        return res.status(403).json({ success: false, message: "Join this test using its valid access code or QR code first" });
       }
       await Quiz.updateOne({ _id: quiz._id }, { $addToSet: { registeredStudents: studentId } });
     }
