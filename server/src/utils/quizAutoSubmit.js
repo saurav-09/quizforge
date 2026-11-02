@@ -1,5 +1,6 @@
 import Quiz from "../models/Quiz.js";
 import QuizAttempt from "../models/QuizAttempt.js";
+import Room from "../models/Room.js";
 import { calculateQuizScore } from "./quizScoring.js";
 
 const getAttemptDeadline = (attempt, quiz) => {
@@ -90,6 +91,46 @@ export const autoSubmitExpiredAttempts = async () => {
 
     if (completed.modifiedCount > 0) {
       console.log(`Automatically completed ${completed.modifiedCount} scheduled test(s)`);
+    }
+
+    // Tests without an end time close automatically after every assigned or
+    // code-registered student has submitted at least one attempt.
+    const openUnscheduledTests = await Quiz.find({
+      status: "published",
+      "settings.quizMode": "test",
+      endTime: null,
+    }).select("_id assignedRooms assignedStudents registeredStudents");
+
+    for (const quiz of openUnscheduledTests) {
+      const rooms = quiz.assignedRooms?.length
+        ? await Room.find({
+            _id: { $in: quiz.assignedRooms },
+            isActive: true,
+          }).select("members").lean()
+        : [];
+
+      const eligibleStudentIds = [
+        ...(quiz.assignedStudents || []),
+        ...(quiz.registeredStudents || []),
+        ...rooms.flatMap((room) => room.members || []),
+      ].map((id) => id.toString());
+
+      const uniqueEligibleIds = [...new Set(eligibleStudentIds)];
+      if (uniqueEligibleIds.length === 0) continue;
+
+      const submittedStudentIds = await QuizAttempt.distinct("student", {
+        quiz: quiz._id,
+        student: { $in: uniqueEligibleIds },
+        status: "submitted",
+      });
+
+      if (submittedStudentIds.length === uniqueEligibleIds.length) {
+        await Quiz.updateOne(
+          { _id: quiz._id, status: "published", endTime: null },
+          { $set: { status: "completed" } }
+        );
+        console.log(`Automatically completed test ${quiz._id} after all assigned students submitted`);
+      }
     }
   } catch (error) {
     console.error("Quiz auto-submit/completion job error:", error);
