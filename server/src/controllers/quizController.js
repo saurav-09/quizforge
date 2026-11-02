@@ -1104,6 +1104,7 @@ export const getQuizResults = async (req, res) => {
         description: quiz.description,
         status: quiz.status,
         quizMode: quiz.settings?.quizMode || "practice",
+        endTime: quiz.endTime,
         resultsShared: quiz.resultsShared || false,
         totalQuestions: quiz.questions?.length || 0,
       },
