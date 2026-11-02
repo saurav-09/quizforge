@@ -5,12 +5,17 @@ import {
   Play,
   RefreshCw,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/react";
 
 function StudentQuizzes() {
   const { getToken } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
+  const [accessCode, setAccessCode] = useState(() => new URLSearchParams(location.search).get("accessCode") || "");
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState("");
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -61,6 +66,37 @@ function StudentQuizzes() {
   useEffect(() => {
     fetchQuizzes();
   }, []);
+
+  useEffect(() => {
+    const codeFromLink = new URLSearchParams(location.search).get("accessCode");
+    if (codeFromLink) {
+      setAccessCode(codeFromLink.toUpperCase());
+      joinTest(codeFromLink);
+    }
+  }, [location.search]);
+
+  const joinTest = async (providedCode = accessCode) => {
+    const normalizedCode = String(providedCode || "").trim().toUpperCase();
+    if (!normalizedCode) return;
+    try {
+      setJoining(true);
+      setJoinError("");
+      const token = await getToken();
+      const response = await fetch("/api/quizzes/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ accessCode: normalizedCode }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Unable to join this test");
+      if (!data.quiz?._id) throw new Error("Test joined, but its details could not be loaded.");
+      navigate(`/student/quizzes/${data.quiz._id}`);
+    } catch (error) {
+      setJoinError(error.message || "Unable to join this test");
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const formatDateTime = (date) => {
     if (!date) {
@@ -123,6 +159,15 @@ function StudentQuizzes() {
           Choose a quiz and test your knowledge.
         </p>
       </div>
+
+      <form onSubmit={(event) => { event.preventDefault(); joinTest(); }} className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 sm:flex-row">
+        <div className="flex-1">
+          <label htmlFor="test-access-code" className="mb-1.5 block text-sm font-medium text-text-primary">Join a test with code or QR</label>
+          <input id="test-access-code" value={accessCode} onChange={(event) => setAccessCode(event.target.value.toUpperCase())} maxLength={8} required placeholder="Enter test code" className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm uppercase tracking-widest" />
+          {joinError && <p role="alert" className="mt-1.5 text-xs text-red-600">{joinError}</p>}
+        </div>
+        <button type="submit" disabled={joining || accessCode.trim().length !== 8} className="h-10 self-end rounded-button bg-brand-violet px-5 text-sm font-medium text-white disabled:opacity-50">{joining ? "Joining..." : "Join test"}</button>
+      </form>
 
       {/* Empty State */}
       {quizzes.length === 0 ? (
